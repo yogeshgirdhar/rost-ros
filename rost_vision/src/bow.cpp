@@ -19,9 +19,9 @@ namespace rost{
 
 
   struct BOW{    
+    string name;
     int vocabulary_begin;
     int vocabulary_size;
-    string name;
     BOW(const string& name_, int vb, int vs=0):name(name_), vocabulary_begin(vb), vocabulary_size(vs){}
     virtual WordObservation::Ptr operator()(cv::Mat& img, unsigned image_seq, const vector<int>& pose)=0;   
   };
@@ -31,41 +31,69 @@ namespace rost{
   struct ColorBOW:public BOW{
     int size_cols;
     double img_scale;
-    ColorBOW(int vocabulary_begin_, int size_cols_, double img_scale_=1.0):
-      BOW("Hue",vocabulary_begin_,180),
+    bool use_hue, use_intensity;
+    int hvocab0, ivocab0;
+    ColorBOW(int vocabulary_begin_=0, int size_cols_=32, double img_scale_=1.0, bool use_hue_=true, bool use_intensity_=true):
+      BOW("Color",vocabulary_begin_,0),
       size_cols(size_cols_),
-      img_scale(img_scale_)
-    {}
-    WordObservation::Ptr operator()(cv::Mat& img, unsigned image_seq, const vector<int>& pose){
+      img_scale(img_scale_),
+      use_hue(use_hue_), use_intensity(use_intensity_)
+    {
+      assert(use_hue || use_intensity);
+      if(use_hue){
+	cerr<<"Initializing Hue Words"<<endl;
+	hvocab0=vocabulary_begin+vocabulary_size;
+	BOW::vocabulary_size+=180;
+      }
+      if(use_intensity){
+	cerr<<"Initializing Intensity Words"<<endl;
+	ivocab0=vocabulary_begin+vocabulary_size;
+	BOW::vocabulary_size+=256;
+      }
+    }
+
+    WordObservation::Ptr operator()(cv::Mat& imgs, unsigned image_seq, const vector<int>& pose){
 
 
       cv::Mat thumb;
       int size_rows = size_cols*static_cast<float>(imgs.rows)/imgs.cols;
-      cv::resize(img,thumb,cv::Size(size_cols,size_rows));
+      cv::resize(imgs,thumb,cv::Size(size_cols,size_rows));
       cv::Mat hsv (size_rows, size_cols, CV_8UC3);
-      cv::Mat hue (hsv.rows, hsv.cols, CV_8UC1);
-      cv::Mat saturation (hsv.rows, hsv.cols, CV_8UC1);
-      cv::Mat value (hsv.rows, hsv.cols, CV_8UC1);
+      cv::Mat_<uchar> hue (hsv.rows, hsv.cols);
+      cv::Mat_<uchar> saturation (hsv.rows, hsv.cols);
+      cv::Mat_<uchar> value (hsv.rows, hsv.cols);
       cv::cvtColor(thumb,hsv,CV_BGR2HSV);
       cv::Mat splitchannels[]={hue,saturation,value};
       cv::split(hsv,splitchannels);
 
+
+      WordObservation::Ptr z(new rost_common::WordObservation);
+      z->source=name;
+      z->seq = image_seq;
+      z->observation_pose=pose;
+      z->vocabulary_begin=vocabulary_begin;
+      z->vocabulary_size=vocabulary_size;
+
+      //width of each pixel in the original image
+      float word_scale = static_cast<float>(imgs.cols)/size_cols/img_scale;
+
       vector<int> word_pose(2,0);
       for(int i=0;i<thumb.rows; ++i) // y
 	for(int j=0;j<thumb.cols; ++j){ //x
-	  if(use_intensity_words){
-	    z->words.push_back( ivocab0 + iwords(i,j)*ivocab_size/256);
-	    z->coordinates.push_back(j*iword_scale + iword_scale/2);
-	    z->coordinates.push_back(i*iword_scale + iword_scale/2);
-	    z->word_scales.push_back(iword_scale/2);
+	  if(use_intensity){
+	    z->words.push_back(ivocab0 + value(i,j));
+	    z->word_pose.push_back(j*word_scale + word_scale/2);
+	    z->word_pose.push_back(i*word_scale + word_scale/2);
+	    z->word_scale.push_back(word_scale/2);
 	  }
-	  if(use_hue_words){
-	    vw_msg->words.push_back( hvocab0 + hue_words(i,j)*hvocab_size/180); //hue is from 0..180
-	    vw_msg->coordinates.push_back(j*iword_scale + iword_scale/2);
-	    vw_msg->coordinates.push_back(i*iword_scale + iword_scale/2);
-	    vw_msg->scales.push_back(iword_scale/2);
+	  if(use_hue){
+	    z->words.push_back( hvocab0 + hue(i,j)); //hue is from 0..180
+	    z->word_pose.push_back(j*word_scale + word_scale/2);
+	    z->word_pose.push_back(i*word_scale + word_scale/2);
+	    z->word_scale.push_back(word_scale/2);
 	  }
-	}      
+	}
+      return z;
     }
   };
 
