@@ -39,6 +39,7 @@ int read_program_options(int argc, char*argv[], po::variables_map& args){
     //    ("dense","Use Dense SURF for all 3 RGB channels, using multi-resolution overlapping windows(instead of the default sparse SURF)")
     ("keypoints,k", po::value<string>()->default_value("keypoints.txt"),"File which saves the location and size of each keypoint in the same order as the word out")
     ("wformat",po::value<string>()->default_value("words"), "words/counts: word matrix output is word counts or just words?")
+    ("binary","feature descriptor is binary")
     ;
 
   po::positional_options_description pos_desc;
