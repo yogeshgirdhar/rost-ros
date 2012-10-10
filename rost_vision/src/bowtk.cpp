@@ -32,7 +32,7 @@ int read_program_options(int argc, char*argv[], po::variables_map& args){
     ("fdescriptor,r",po::value<string>()->default_value("SURF"), "Feature description technique. Can be one of the following: \"SIFT\", \"SURF\", \"ORB\", \"BRIEF\" + optional modifiers: \"Opponent\"")
     ("fdetector-surf-threshold", po::value<double>()->default_value(400),"specifies surf threshold, if surf detector was used.")
 
-    ("vocabulary,v", po::value<string>()->default_value("vocab.yml"),"Vocabulary file. In training this specifies the outfile, whereas in description mode, it specifies the input vocabulary")
+    ("vocabulary,v", po::value<string>()->default_value("vocabulary.yml"),"Vocabulary file. In training this specifies the outfile, whereas in description mode, it specifies the input vocabulary")
     ("words,w", po::value<string>()->default_value("words.txt"),"Words file output. ")
     ("descriptors,d", po::value<string>()->default_value("descriptors.txt"),"normalized descriptors output")
 

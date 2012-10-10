@@ -56,7 +56,7 @@ int read_program_options(int argc, char*argv[], po::variables_map& args){
     ("vocabulary,v", po::value<string>()->default_value("vocabulary.yml"),"Vocabulary file. In training this specifies the outfile, whereas in description mode, it specifies the input vocabulary")
     ("words,w", po::value<string>()->default_value("words.txt"),"Words file output. ")
     ("descriptors,d", po::value<string>()->default_value("descriptors.txt"),"normalized descriptors output")
-
+    ("show.keypoints", po::value<bool>()->default_value(true),"Show keypoints")
     //    ("dense","Use Dense SURF for all 3 RGB channels, using multi-resolution overlapping windows(instead of the default sparse SURF)")
     ("keypoints,k", po::value<string>()->default_value("keypoints.txt"),"File which saves the location and size of each keypoint in the same order as the word out")
     ("wformat",po::value<string>()->default_value("words"), "words/counts: word matrix output is word counts or just words?")
@@ -93,12 +93,13 @@ cv::Ptr<cv::FeatureDetector> get_feature_detector(const string& name, int num_fe
     fd = cv::Ptr<cv::FeatureDetector>(new cv::GridAdaptedFeatureDetector(orb,num_features,4,4));;
   }
   else if(name=="Dense"){
-    fd = cv::Ptr<cv::FeatureDetector>(new cv::DenseFeatureDetector(32, 1, 0.1, 16));
+    fd = cv::Ptr<cv::FeatureDetector>(new cv::DenseFeatureDetector(32, 1, 0.1, 16, 32));
   }
   else 
     fd = cv::FeatureDetector::create(name);
   return fd;
 }
+
 namespace cv{
 struct orient_keypoints{
   float IC_Angle(const Mat& image, const int half_k, Point2f pt,
@@ -159,7 +160,23 @@ struct orient_keypoints{
 };
 }
 
-enum {Train, Describe, TrainDescribe};
+
+void get_keypoints(cv::Mat& imgs, vector<string>& feature_detector_names, vector<cv::Ptr<cv::FeatureDetector> >& feature_detectors, vector<cv::KeyPoint>& keypoints)
+{
+  static cv::orient_keypoints keypoint_orienter;
+  keypoints.clear();
+  for(size_t i=0;i<feature_detectors.size(); ++i){
+    std::vector<cv::KeyPoint> keypoints_i;
+    feature_detectors[i]->detect(imgs, keypoints_i);
+    if(feature_detector_names[i]=="Dense"){
+      cv::Mat img_gray;
+      cvtColor(imgs,img_gray,CV_RGB2GRAY);
+      keypoint_orienter(img_gray, keypoints_i, 31);
+    }
+    keypoints.insert(keypoints.end(), keypoints_i.begin(), keypoints_i.end());
+  }  
+}
+
 
 int main(int argc, char*argv[]){
   po::variables_map ARGS;
@@ -167,37 +184,29 @@ int main(int argc, char*argv[]){
   cv::initModule_nonfree();
 
 
-  int task;
+  bool do_train=false, do_describe=false;
   if(ARGS["task"].as<string>()=="train")
-    task=Train;
+    do_train=true;
   else if(ARGS["task"].as<string>()=="describe")
-    task=Describe;
-  else
-    task=TrainDescribe;
+    do_describe=true;
+  else{
+    do_train=true;
+    do_describe=true;
+  }
 
-  if(task==Train){
-    std::ofstream metaout("bow_train_meta.txt");
-    metaout<<"nwords: "<<ARGS["nwords"].as<int>()<<endl
-	   <<"scale: "<<ARGS["scale"].as<float>()<<endl
-	   <<"subsample: "<<ARGS["subsample"].as<int>()<<endl
-      //      	   <<"fdetector: "<<ARGS["fdetector"].as<string>()<<endl
-	   <<"fdescriptor: "<<ARGS["fdescriptor"].as<string>()<<endl
-      //	   <<"thresholdsurf: "<<ARGS["thresholdsurf"].as<double>()<<endl
-      ;
-    metaout.close();
-  }
-  else if(task==Describe || task == TrainDescribe){
-    std::ofstream metaout("bow_describe_meta.txt");
-    metaout<<"nwords: "<<ARGS["nwords"].as<int>()<<endl
-	   <<"scale: "<<ARGS["scale"].as<float>()<<endl
-	   <<"subsample :"<<ARGS["subsample"].as<int>()<<endl
-      //   <<"thresholdsurf: "<<ARGS["thresholdsurf"].as<double>()<<endl
-	   <<"vocab: "<<ARGS["vocabulary"].as<string>()<<endl
-      //	   <<"fdetector: "<<ARGS["fdetector"].as<string>()<<endl
-	   <<"fdescriptor: "<<ARGS["fdescriptor"].as<string>()<<endl
-      ;
-    metaout.close();    
-  }
+  bool show_keypoints = ARGS["show.keypoints"].as<bool>();
+
+  std::ofstream metaout("orbtk_meta.txt");
+  metaout<<"nwords: "<<ARGS["nwords"].as<int>()<<endl
+	 <<"scale: "<<ARGS["scale"].as<float>()<<endl
+	 <<"subsample :"<<ARGS["subsample"].as<int>()<<endl
+    //   <<"thresholdsurf: "<<ARGS["thresholdsurf"].as<double>()<<endl
+	 <<"vocab: "<<ARGS["vocabulary"].as<string>()<<endl
+    //	   <<"fdetector: "<<ARGS["fdetector"].as<string>()<<endl
+	 <<"fdescriptor: "<<ARGS["fdescriptor"].as<string>()<<endl
+    ;
+  metaout.close();    
+  
 
   ImageSource * img_source;
 
@@ -257,14 +266,14 @@ int main(int argc, char*argv[]){
   cerr<<endl;
 
   cv::Ptr<cv::DescriptorExtractor> desc_extractor = cv::DescriptorExtractor::create(ARGS["fdescriptor"].as<string>());
-  cv::Ptr<cv::DescriptorMatcher> desc_matcher = cv::DescriptorMatcher::create("BruteForce-Hamming");
 
   cv::BOWKMeansTrainer bow_trainer(ARGS["nwords"].as<int>());
 
-  cv::Mat show_keypoints_img;
+  cv::Mat show_keypoints_img, img_gray;
 
-  cv::orient_keypoints keypoint_orienter;
-  if(task==Train){
+
+  cv::Mat binary_vocabulary;
+  if(do_train){
     cerr<<"Starting.."<<endl;
     while(!done && (ARGS["numframe"].as<int>()==0 || numframe < ARGS["numframe"].as<int>())){
       done=!scale.grab();
@@ -273,28 +282,15 @@ int main(int argc, char*argv[]){
 	{std::cerr<<"Done reading files.\n"; continue;}
 
       scale.retrieve(imgs);
-      cv::Mat img_gray;
-      cvtColor(imgs,img_gray,CV_RGB2GRAY);
-
-      keypoints.clear();
-      for(size_t i=0;i<num_feature_detectors; ++i){
-	std::vector<cv::KeyPoint> keypoints_i;
-	feature_detectors[i]->detect(imgs, keypoints_i);
-	if(feature_detector_names[i]=="Dense"){
-	  keypoint_orienter(img_gray, keypoints_i, 31);
-	}
-	keypoints.insert(keypoints.end(), keypoints_i.begin(), keypoints_i.end());
-      }
+      get_keypoints(imgs,feature_detector_names, feature_detectors, keypoints);
       cerr<<"Img "<<imgid<<"  #keypoints: "<<keypoints.size()<<endl;
 
       cv::Mat descriptors;
       
       if(keypoints.size()>0){
 	desc_extractor->compute(imgs,keypoints,descriptors);
-	cerr<<"type="<<(descriptors.type()==CV_8U ? "8U": "donno")<<"  "<<descriptors.rows<<"  "<<descriptors.cols<<endl;
 	bow_trainer.add(binary_to_float(descriptors));
       }
-      cerr<<"Img "<<imgid<<"  #descriptors: "<<keypoints.size()<<endl;
       
       show_keypoints_img = imgs.clone();
       cv::drawKeypoints(imgs, keypoints, show_keypoints_img, cv::Scalar::all(-1), cv::DrawMatchesFlags::DRAW_OVER_OUTIMG + cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
@@ -307,7 +303,7 @@ int main(int argc, char*argv[]){
     
     std::cerr<<"Clustering "<<bow_trainer.descripotorsCount()<<" descriptors to generate a vocabulary of size "<<ARGS["nwords"].as<int>()<<std::endl;
     cv::Mat vocabulary = bow_trainer.cluster();
-    cv::Mat binary_vocabulary = float_to_binary(vocabulary);
+    binary_vocabulary = float_to_binary(vocabulary);
     std::cerr<<"Writing vocabulary to file: "<<ARGS["vocabulary"].as<string>()<<endl;
     cv::FileStorage fs(ARGS["vocabulary"].as<string>(), cv::FileStorage::WRITE);
     fs<<"vocabulary"<<binary_vocabulary;
@@ -317,6 +313,57 @@ int main(int argc, char*argv[]){
     
   }//end train
 
+
+  if(do_describe){
+    std::cerr<<"Reading vocabulary file: "<<ARGS["vocabulary"].as<string>()<<endl;
+    cv::FileStorage fs(ARGS["vocabulary"].as<string>(), cv::FileStorage::READ);
+    fs["vocabulary"]>>binary_vocabulary;
+    fs.release();
+    std::cerr<<"Read vocabulary with "<<binary_vocabulary.rows<<" words.\n";
+    cv::Ptr<cv::DescriptorMatcher> desc_matcher = cv::DescriptorMatcher::create("BruteForce-Hamming");
+
+    cv::BOWImgDescriptorExtractor bow_extractor(desc_extractor, desc_matcher);
+    bow_extractor.setVocabulary(binary_vocabulary);
+
+    vector<cv::DMatch> matches;
+    while(!done && (ARGS["numframe"].as<int>()==0 || numframe < ARGS["numframe"].as<int>())){
+      done=!scale.grab();
+      
+      if(done)
+	{std::cerr<<"Done reading files.\n"; continue;}
+
+      scale.retrieve(imgs);
+      get_keypoints(imgs,feature_detector_names, feature_detectors, keypoints);
+      cerr<<"Img "<<imgid<<"  #keypoints: "<<keypoints.size()<<endl;
+
+      cv::Mat descriptors;
+      
+      if(keypoints.size()>0){
+	matches.clear();
+	desc_extractor->compute(imgs,keypoints,descriptors);
+	desc_matcher->match(descriptors,binary_vocabulary,matches);
+	
+	assert(matches.size()==descriptors.rows);
+	vector<int> words(matches.size(),0);
+	for(size_t i=0;i<matches.size(); ++i){
+	  words[matches[i].queryIdx] = matches[i].trainIdx;
+	}
+	copy(words.begin(), words.end(), ostream_iterator<int>(cout," "));
+	cout<<endl;
+      }
+
+      if(show_keypoints){
+	show_keypoints_img = imgs.clone();
+	cv::drawKeypoints(imgs, keypoints, show_keypoints_img, cv::Scalar::all(-1), cv::DrawMatchesFlags::DRAW_OVER_OUTIMG + cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+	cv::imshow("keypoints", show_keypoints_img);
+      }
+
+      imgid+=ARGS["subsample"].as<int>();  
+      numframe++;
+      cv::waitKey(1);
+    }
+
+  }
   return 0;
 }
 
