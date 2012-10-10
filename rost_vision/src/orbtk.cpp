@@ -291,10 +291,11 @@ int main(int argc, char*argv[]){
 	desc_extractor->compute(imgs,keypoints,descriptors);
 	bow_trainer.add(binary_to_float(descriptors));
       }
-      
-      show_keypoints_img = imgs.clone();
-      cv::drawKeypoints(imgs, keypoints, show_keypoints_img, cv::Scalar::all(-1), cv::DrawMatchesFlags::DRAW_OVER_OUTIMG + cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
-      cv::imshow("keypoints", show_keypoints_img);
+      if(show_keypoints){
+	show_keypoints_img = imgs.clone();
+	cv::drawKeypoints(imgs, keypoints, show_keypoints_img, cv::Scalar::all(-1), cv::DrawMatchesFlags::DRAW_OVER_OUTIMG + cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+	cv::imshow("keypoints", show_keypoints_img);
+      }
 
       imgid+=ARGS["subsample"].as<int>();  
       numframe++;
