@@ -93,6 +93,7 @@ namespace rost{
 	    z->word_scale.push_back(word_scale/2);
 	  }
 	}
+      cerr<<"#color-words: "<<z->words.size();
       return z;
     }
   };
@@ -107,6 +108,7 @@ namespace rost{
       BOW(feature_detector_name+"+"+feature_descriptor_name, vocabulary_begin_),
       img_scale(img_scale_)
     {
+      cerr<<"Initializing SURF BOW"<<endl;
       if(feature_detector_name=="Dense"){
 	feature_detector = new cv::DenseFeatureDetector();
       
@@ -229,7 +231,10 @@ int main(int argc, char**argv){
     rost::word_extractors.push_back(cv::Ptr<rost::BOW>(new rost::FeatureBOW(v_begin,surf_vocabulary_filename, "SURF","SURF", rost::img_scale)));
       v_begin+=rost::word_extractors.back()->vocabulary_size;
   }
-
+  if(use_hue || use_intensity){
+    rost::word_extractors.push_back(cv::Ptr<rost::BOW>(new rost::ColorBOW(v_begin, 32, rost::img_scale, use_hue, use_intensity)));
+    v_begin+=rost::word_extractors.back()->vocabulary_size;
+  }
   
 
   image_transport::ImageTransport it(nhp);

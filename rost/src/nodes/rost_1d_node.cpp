@@ -14,32 +14,39 @@ ros::Publisher topics_pub;
 
 
 void broadcast_topics(pose_t pose, vector<int>& word_pose, vector<int>& word_scale){
+  cerr<<"Requesting topics for pose: "<<pose<<endl;
   rost_common::WordObservation::Ptr z(new rost_common::WordObservation);
   z->source="topics";
   z->seq = pose;
-  z->observation_pose.push_back(pose);
+  z->observation_pose .push_back(pose);
   z->word_pose        = word_pose;
-  z->word_pose        = word_scale;
+  z->word_scale       = word_scale;
   z->vocabulary_begin = 0;
   z->vocabulary_size  = K;  
-  cerr<<"Requesting topics for pose: "<<pose<<endl;
   z->words            = rost->get_topics_for_pose(pose);
-  cerr<<"Pushing topics "<<pose<<": "<<z->words.size()<<endl;
   topics_pub.publish(z);
+  cerr<<"Publish topics "<<pose<<": "<<z->words.size()<<endl;
 }
 
 void words_callback(const rost_common::WordObservation::ConstPtr&  words){
-  cerr<<"Got words: "<<words->words.size()<<endl;
-  if(last_pose>=0){
+  cerr<<"Got words: "<<words->source<<"  #"<<words->words.size()<<endl;
+  pose_t observation_pose = words->observation_pose[0];
+  if(last_pose>=0 && (last_pose != observation_pose)){
     broadcast_topics(last_pose, last_word_pose, last_word_scale);
   }
   size_t refine_count = rost->get_refine_count();
   rost->add_observation(words->observation_pose[0], words->words);
-  cerr<<"#cells_refine: "<<refine_count - last_refine_count<<endl;
-  last_pose = words->observation_pose[0];
-  last_word_pose = words->word_pose;
-  last_word_scale = words->word_scale;
-  last_refine_count = refine_count;
+  if(last_pose != observation_pose){
+    cerr<<"#cells_refine: "<<refine_count - last_refine_count<<endl;  
+    last_pose = words->observation_pose[0];
+    last_word_pose = words->word_pose;
+    last_word_scale = words->word_scale;
+    last_refine_count = refine_count;
+  }
+  else{
+    last_word_pose.insert(last_word_pose.end(), words->word_pose.begin(), words->word_pose.end());
+    last_word_scale.insert(last_word_scale.end(), words->word_scale.begin(), words->word_scale.end());
+  }
 }
 
 
@@ -49,8 +56,7 @@ int main(int argc, char**argv){
 
   double alpha, beta, gamma, tau;//, G_width_space;
   int G_width_time, G_max, num_threads;
-  nh->param<int>("K", K,16); //number of topics
-  nh->setParam("K",K);
+  nh->param<int>("K", K, 16); //number of topics
   nh->param<int>("G_max", G_max,0); //max neighborhood size 0=no limit
   nh->param<int>("V", V,1500); //vocabulary size
   //  nh->param<int>("max_refines_per_iter", max_refines_per_iter,0); //vocabulary size 1000 + 16 + 18
@@ -66,7 +72,7 @@ int main(int argc, char**argv){
 
 
   topics_pub = nh->advertise<rost_common::WordObservation>("/topics", 1);
-  ros::Subscriber sub = nh->subscribe("/words", 1, words_callback);
+  ros::Subscriber sub = nh->subscribe("/words", 10, words_callback);
 
   //  ros::ServiceServer write_topics_service = nh->advertiseService("write_topics", service_write_topics_callback);
   //  ros::ServiceServer write_state_service = nh->advertiseService("write_state", service_write_state_callback);

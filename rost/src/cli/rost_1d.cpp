@@ -41,7 +41,9 @@ int main(int argc, char*argv[]){
     cerr<<"Writing output:"<<endl;
     ofstream out_topics(args["out.topics"].as<string>());
     for(int d = 0; d< rost.C; ++d){
-      copy(rost.cells[d]->Z.begin(), rost.cells[d]->Z.end(), ostream_iterator<int>(out_topics," "));
+      vector<int> topics = rost.get_topics_for_pose(d);
+      copy(topics.begin(), topics.end(), ostream_iterator<int>(out_topics," "));
+      //copy(rost.cells[d]->Z.begin(), rost.cells[d]->Z.end(), ostream_iterator<int>(out_topics," "));
       out_topics<<endl;
     }
   }
@@ -59,13 +61,16 @@ int main(int argc, char*argv[]){
       this_thread::sleep_for(chrono::milliseconds(args["online.mint"].as<int>()));
       //      cerr<<"Read cell: "<<t<<endl;
       if(t>0){
-	copy(rost.cells[t-1]->Z.begin(), rost.cells[t-1]->Z.end(), ostream_iterator<int>(out_topics," "));
+	vector<int> topics = rost.get_topics_for_pose(t-1);
+	copy(topics.begin(), topics.end(), ostream_iterator<int>(out_topics," "));
 	out_topics<<endl;
       }
       rost.add_observation(t++,words);
       words = in.get();      
     }
-    copy(rost.cells[t-1]->Z.begin(), rost.cells[t-1]->Z.end(), ostream_iterator<int>(out_topics," "));
+    vector<int> topics = rost.get_topics_for_pose(t-1);
+    copy(topics.begin(), topics.end(), ostream_iterator<int>(out_topics," "));
+    //copy(rost.cells[t-1]->Z.begin(), rost.cells[t-1]->Z.end(), ostream_iterator<int>(out_topics," "));
     out_topics<<endl;
    
     cerr<<"Reached EOF. Terminating."<<endl;

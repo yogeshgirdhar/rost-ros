@@ -194,11 +194,14 @@ struct ROST{
   {
   }
 
+  //compute maximum likelihood estimate for topics in the cell for the given pose
   vector<int> get_topics_for_pose(const PoseT& pose){
     //lock_guard<mutex> lock(cells_mutex);
     auto cell_it = cell_lookup.find(pose);
-    if(cell_it != cell_lookup.end()){      
-      return get_cell(cell_it->second)->get_topics();
+    if(cell_it != cell_lookup.end()){ 
+      auto c = get_cell(cell_it->second);
+      lock_guard<mutex> lock(c->cell_mutex);
+      return estimate(*c);
     }
     else
       return vector<int>();
@@ -340,6 +343,41 @@ struct ROST{
       c.relabel(i,z,z_new);
     } 
   }
+
+  //estimate maximum likelihood topics for the cell
+  vector<int> estimate(Cell& c){
+    if(c.id >=C)
+      return vector<int>();
+
+    vector<int> nZg(K); //topic distribution over the neighborhood (initialize with the cell)
+
+    //accumulate topic histogram from the neighbors
+    for(auto gid: c.neighbors){
+      if(gid <C){
+	auto g = get_cell(gid); 
+	transform(g->nZ.begin(), g->nZ.end(), nZg.begin(), nZg.begin(), plus<int>());
+      }
+    }
+    transform(c.nZ.begin(), c.nZ.end(), nZg.begin(), nZg.begin(), plus<int>());
+
+    vector<double> pz(K,0);
+    vector<int> Zc(c.W.size());
+
+    for(size_t i=0;i<c.W.size(); ++i){
+      int w = c.W[i];
+      int z = c.Z[i];
+      nZg[z]--;
+
+      for(size_t k=0;k<K; ++k){
+	int nkw = nZW[k][w];      
+	int weight_k = weight_Z[k];
+	pz[k] = (nkw+beta)/(weight_k + beta*V) * (nZg[k]+alpha);
+      } 
+      Zc[i]= max_element(pz.begin(), pz.end()) - pz.begin();
+    } 
+    return Zc;
+  }
+
 };
 
 
@@ -385,13 +423,21 @@ template<typename R, typename Stop>
 void dowork_parallel_refine_online(R* rost, double tau, int thread_id, Stop stop){
   gamma_distribution<double> gamma1(tau,1.0);
   gamma_distribution<double> gamma2(1.0,1.0);
-
+  
   while(! stop->load() ){
     double r_gamma1 = gamma1(rost->engine), r_gamma2 = gamma2(rost->engine);
     double r_beta = r_gamma1/(r_gamma1+r_gamma2);
-
+    double p_refine_current = generate_canonical<double, 10>(rost->engine);
     if(rost->C > 0){
-      size_t cid = floor(r_beta * static_cast<double>(rost->C));
+      size_t cid;
+      if(p_refine_current < 0.9 || rost->C < 10){
+	cid = floor(r_beta * static_cast<double>(rost->C));
+	//cerr<<"global: "<<cid<<endl;
+      }
+      else{
+	cid = rost->C -10 + floor(r_beta * 10);
+	//cerr<<"local: "<<cid<<"/"<<rost->C<<endl;
+      }
       if(cid >= rost->C) 
 	cid = rost->C-1;
 

@@ -5,7 +5,11 @@ using namespace std;
 
 
 int main(int argc, char*argv[]){
-
+  if(argc!=4){
+    cerr<<"Generate random words from topics"<<endl
+	<<"  generate_random_words <words.txt> <K> <V>"<<endl;
+    return 0;
+  }
   int K=2, V=10, seed;
 
   word_reader reader(argv[1]);
