@@ -10,6 +10,7 @@
 #include "rost_common/WordObservation.h"
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
+#include "feature_detector.hpp"
 using namespace std;
 
 namespace rost{
@@ -99,41 +100,58 @@ namespace rost{
   };
 
   struct FeatureBOW:public BOW{
-    cv::Ptr<cv::FeatureDetector> feature_detector;
+    //    cv::Ptr<cv::FeatureDetector> feature_detector;
+    vector<cv::Ptr<cv::FeatureDetector> >feature_detectors;
+    vector<string >feature_detector_names;
     cv::Ptr<cv::DescriptorExtractor> desc_extractor;
     cv::Ptr<cv::DescriptorMatcher> desc_matcher;
-    cv::Ptr<cv::BOWImgDescriptorExtractor>  bow_extractor;
+    cv::Mat vocabulary;
+    
     double img_scale;
-    FeatureBOW(int vocabulary_begin_, const string& vocabulary_filename, const string& feature_detector_name="SURF", const string& feature_descriptor_name="SURF", double img_scale_=1.0):
-      BOW(feature_detector_name+"+"+feature_descriptor_name, vocabulary_begin_),
+
+
+    FeatureBOW(int vocabulary_begin_, 
+	       const string& vocabulary_filename, 
+	       const vector<string>& feature_detector_names_, 
+	       const vector<int>& feature_sizes_, 
+	       const string& feature_descriptor_name="SURF", 
+	       double img_scale_=1.0):
+      BOW(feature_descriptor_name, vocabulary_begin_),
+      feature_detector_names(feature_detector_names_),
       img_scale(img_scale_)
     {
-      cerr<<"Initializing SURF BOW"<<endl;
-      if(feature_detector_name=="Dense"){
-	feature_detector = new cv::DenseFeatureDetector();
-      
+      cerr<<"Initializing Feature BOW"<<endl;
+      for(size_t i=0;i<feature_detector_names.size(); ++i){
+	feature_detectors.push_back(get_feature_detector(feature_detector_names[i],feature_sizes_[i]));
+      }
+
+      desc_extractor = cv::DescriptorExtractor::create(feature_descriptor_name);
+      if(feature_descriptor_name=="SURF"){
+	cerr<<"Using SURF descriptor"<<endl;
+	desc_matcher = cv::DescriptorMatcher::create("FlannBased");
       }
       else{
-	feature_detector = cv::FeatureDetector::create(feature_detector_name);
+	cerr<<"Using ORB descriptor"<<endl;
+	desc_matcher = cv::DescriptorMatcher::create("BruteForce-Hamming");
       }
-      desc_extractor = cv::DescriptorExtractor::create(feature_descriptor_name);
-      desc_matcher = cv::DescriptorMatcher::create("FlannBased");
-      bow_extractor = cv::Ptr<cv::BOWImgDescriptorExtractor>(new cv::BOWImgDescriptorExtractor(desc_extractor, desc_matcher));
+
+      ROS_INFO("Opening vocabulary file: %s",vocabulary_filename.c_str());
       cv::FileStorage fs(vocabulary_filename, cv::FileStorage::READ);
-      cv::Mat vocabulary;
-      fs["vocabulary"]>>vocabulary;
-      fs.release();
-      cerr<<"Read vocabulary: "<<vocabulary.rows<<" "<<vocabulary.cols<<endl;
-      bow_extractor->setVocabulary(vocabulary);
-      vocabulary_size=static_cast<int>(vocabulary.rows);
+      if(fs.isOpened()){
+	fs["vocabulary"]>>vocabulary;
+	fs.release();
+	cerr<<"Read vocabulary: "<<vocabulary.rows<<" "<<vocabulary.cols<<endl;
+	vocabulary_size=static_cast<int>(vocabulary.rows);
+      }
+      else{
+	ROS_ERROR("ERROR opening file: %s\n",vocabulary_filename.c_str());
+	exit(0);
+      }
     }
   
     WordObservation::Ptr operator()(cv::Mat& img, unsigned image_seq, const vector<int>& pose){
-      std::vector<std::vector<int> > word_map;  
-      std::vector<int> inverse_word_map; 
       std::vector<cv::KeyPoint> keypoints;
       cv::Mat descriptors;
-      cv::Mat_<float>bow_descriptors;
 
       WordObservation::Ptr z(new rost_common::WordObservation);
       z->source=name;
@@ -141,16 +159,20 @@ namespace rost{
       z->observation_pose=pose;
       z->vocabulary_begin=vocabulary_begin;
       z->vocabulary_size=vocabulary_size;
-      feature_detector->detect(img, keypoints);     
-      bow_extractor->compute(img,keypoints,bow_descriptors, &word_map);   
-      z->words.resize(keypoints.size());
 
-      for(size_t vi=0;vi<word_map.size(); ++vi){
-	for(size_t wi=0;wi<word_map[vi].size(); ++wi){
-	  z->words[word_map[vi][wi]]=vi;
+      get_keypoints(img, feature_detector_names, feature_detectors, keypoints);
+      //      feature_detector->detect(img, keypoints); 
+      if(keypoints.size()>0){
+	vector<cv::DMatch> matches;
+	desc_extractor->compute(img,keypoints,descriptors);
+	desc_matcher->match(descriptors,vocabulary,matches);	
+	assert(matches.size()==(size_t)descriptors.rows);
+	z->words.resize(matches.size());
+	for(size_t i=0;i<matches.size(); ++i){
+	  z->words[matches[i].queryIdx] = matches[i].trainIdx;
 	}
       }
-  
+
       z->word_pose.resize(keypoints.size()*2);//x,y
       z->word_scale.resize(keypoints.size());//x,y
       rost_common::WordObservation::_word_pose_type::iterator ci = z->word_pose.begin();
@@ -160,7 +182,7 @@ namespace rost{
 	*ci++ = static_cast<int>(keypoints[ki].pt.y/img_scale);
 	*si++ = static_cast<int>(keypoints[ki].size/img_scale);
       }
-      cerr<<"#surf-words: "<<z->words.size()<<endl;
+      cerr<<"#feature-words: "<<z->words.size()<<endl;
       return z;
     }
   };
@@ -196,41 +218,72 @@ int main(int argc, char**argv){
   ros::init(argc, argv, "bow");
   ros::NodeHandle nhp("~");
   //ros::NodeHandle nh;
-  std::string surf_vocabulary_filename, image_topic_name;
+  std::string vocabulary_filename, image_topic_name, feature_descriptor_name;
+  int num_surf, num_orb, num_grid_orb;
+  bool use_surf, use_hue, use_intensity, use_orb, use_grid_orb;
   cerr<<"namespace:"<<nhp.getNamespace()<<endl;
 
   double rate; //looping rate
-  bool use_surf, use_hue, use_intensity;
-  nhp.param<bool>("use_surf",use_surf, true);
+
+  nhp.param<bool>("use_surf",use_surf, false);
+  nhp.param<int>("num_surf",num_surf, 1000);
+
+  nhp.param<bool>("use_orb",use_orb, false);
+  nhp.param<int>("num_orb",num_orb, 1000);
+
+  nhp.param<bool>("use_grid_orb",use_grid_orb, true);
+  nhp.param<int>("num_grid_orb",num_grid_orb, 1000);
+
   nhp.param<bool>("use_hue",use_hue, true);
-  nhp.param<bool>("use_intensity",use_intensity, true);
+  nhp.param<bool>("use_intensity",use_intensity, false);
 
   nhp.param<double>("scale",rost::img_scale, 1.0);
   nhp.param<string>("image",image_topic_name, "/image");
   nhp.param<double>("rate",rate, 10);
-  //  nhp.param<bool>("intensity_words",use_intensity_words, true);
-  //  nhp.param<bool>("hue_words",use_hue_words, true);
-  //  nhp.param<bool>("surf_words",use_surf_words, true);
+
+  nhp.param<string>("feature_descriptor",feature_descriptor_name, "ORB");
 
   cerr<<"Image scaling: "<<rost::img_scale<<endl;
-  //      <<"Feature detector: "<<feature_detector_name<<endl
-  //      <<"Feature descriptor: "<<feature_descriptor_name<<endl;
 
-  //  ROS_DEBUG("Using vocabulary: %s",vocabulary_filename.c_str());
-  //  cerr<<"Using vocabulary: "<<vocabulary_filename<<endl;
   cv::initModule_nonfree();
 
   ros::topic::waitForMessage<sensor_msgs::Image>(image_topic_name);
 
   int v_begin=0;
-  if(use_surf){
-    if(!nhp.getParam("surf_vocabulary",surf_vocabulary_filename)){
+  vector<string> feature_detector_names;
+  vector<int> feature_sizes;
+  if(use_surf || use_orb || use_grid_orb){
+    if(!nhp.getParam("vocabulary",vocabulary_filename)){
       ROS_ERROR("Must specify a vocabulary!");
       return 0;
     }
-    rost::word_extractors.push_back(cv::Ptr<rost::BOW>(new rost::FeatureBOW(v_begin,surf_vocabulary_filename, "SURF","SURF", rost::img_scale)));
-      v_begin+=rost::word_extractors.back()->vocabulary_size;
   }
+
+  if(use_surf){
+    feature_detector_names.push_back("SURF");
+    feature_sizes.push_back(num_surf);
+  }
+  if(use_orb){
+    feature_detector_names.push_back("ORB");
+    feature_sizes.push_back(num_orb);
+  }
+  if(use_grid_orb){
+    feature_detector_names.push_back("Grid3ORB");
+    feature_sizes.push_back(num_grid_orb);
+    feature_detector_names.push_back("Grid4ORB");
+    feature_sizes.push_back(num_grid_orb);
+  }
+
+  if(use_hue || use_orb){
+    rost::word_extractors.push_back(cv::Ptr<rost::BOW>(new rost::FeatureBOW(v_begin,
+									    vocabulary_filename, 
+									    feature_detector_names,
+									    feature_sizes, 
+									    feature_descriptor_name,
+									    rost::img_scale)));
+    v_begin+=rost::word_extractors.back()->vocabulary_size;
+  }
+
   if(use_hue || use_intensity){
     rost::word_extractors.push_back(cv::Ptr<rost::BOW>(new rost::ColorBOW(v_begin, 32, rost::img_scale, use_hue, use_intensity)));
     v_begin+=rost::word_extractors.back()->vocabulary_size;

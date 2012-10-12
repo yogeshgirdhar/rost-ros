@@ -331,8 +331,8 @@ struct ROST{
       nZg[z]--;
 
       for(size_t k=0;k<K; ++k){
-	int nkw = nZW[k][w]-1;        nkw      = nkw       < 0 ? 0: nkw;
-	int weight_k = weight_Z[k]-1; weight_k = weight_k  < 0 ? 0: weight_k;
+	int nkw = max<int>(0,nZW[k][w]-1);
+	int weight_k = max<int>(0,weight_Z[k]-1); 
 	pz[k] = (nkw+beta)/(weight_k + beta*V) * (nZg[k]+alpha);
       } 
       discrete_distribution<> dZ(pz.begin(), pz.end());
