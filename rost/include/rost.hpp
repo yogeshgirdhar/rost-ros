@@ -60,18 +60,28 @@ T standardize_angle( T v, T N=180){
 //};
 
 //neighbors specialization for a pose of array type
-template<typename Container>
+template<typename Array>
 struct neighbors {
-  const int depth;
-  neighbors( int depth_):depth(depth_){}
-  vector<Container> operator()(const Container& o) const{
+  //  const int depth;
+  Array depth;
+  size_t neighborhood_size;
+  neighbors( int depth_){
+    depth.fill(depth_);
+    neighborhood_size=depth.size()*2*depth[0];
+  }
+  neighbors( const Array& depth_):depth(depth_){
+    neighborhood_size=0;
+    for(auto d:  depth){
+      neighborhood_size += 2*d;
+    }
+  }
+  vector<Array> operator()(const Array& o) const{
 
-    vector<Container> neighbor_list(o.size()*2*depth, o);
-    auto i = neighbor_list.begin();
+    vector<Array> neighbor_list(neighborhood_size, o);
     
     auto outit = neighbor_list.begin();
     for(size_t i=0; i<o.size(); ++i){
-      for(int d = 0; d<depth; ++d){
+      for(int d = 0; d<depth[i]; ++d){
 	(*outit++)[i] += d+1;
 	(*outit++)[i] -= d+1;
       }
@@ -79,6 +89,7 @@ struct neighbors {
     return neighbor_list;
   }
 };
+
 template<>
 struct neighbors<int> {
   int depth;

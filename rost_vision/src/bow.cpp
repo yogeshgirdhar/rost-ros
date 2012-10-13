@@ -206,9 +206,15 @@ namespace rost{
     pose[0]=msg->header.seq;
     pose[1]=0;
     pose[2]=0;
-    for(size_t i=0;i<word_extractors.size(); ++i){
-      words_pub.publish((*word_extractors[i])(imgs, msg->header.seq, pose));
-    }    
+    //    int nw=3;
+    //    for(int x=0; x<nw; ++x){
+    //      for(int y=0; y<nw; ++y){
+    //	cv::Mat imgwindow = imgs(cv::Range(x*imgs.rows/nw, (x+1)*imgs.rows/nw), cv::Range(y*imgs.cols/nw, (y+1)*imgs.cols/nw))
+	for(size_t i=0;i<word_extractors.size(); ++i){
+	  words_pub.publish((*word_extractors[i])(imgs, msg->header.seq, pose));
+	}    
+	//      }
+	//    }
   }
 }
 

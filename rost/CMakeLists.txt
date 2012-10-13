@@ -49,6 +49,7 @@ if(BUILD_CLI_TOOLS)
   find_package(Boost COMPONENTS program_options)
   include_directories(${Boost_INCLUDE_DIR})
   
+  add_executable(test_neighbors src/cli/test_neighbors.cpp )
   add_executable(test_rost src/cli/test_rost.cpp )
   add_executable(test_rost_online src/cli/test_rost_online.cpp)
   add_executable(rost_1d src/cli/rost_1d.cpp)
@@ -59,4 +60,5 @@ endif()
 
 if(BUILD_ROS_NODES)
   rosbuild_add_executable(rost_1d_node src/nodes/rost_1d_node.cpp)
+  rosbuild_add_executable(rost_txy_image_node src/nodes/rost_txy_image_node.cpp)
 endif()
