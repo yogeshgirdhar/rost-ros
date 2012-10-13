@@ -55,7 +55,7 @@ int main(int argc, char**argv){
   ros::NodeHandle *nh = new ros::NodeHandle("~");
 
   double alpha, beta, gamma, tau;//, G_width_space;
-  int G_width_time, G_max, num_threads;
+  int G_time, G_max, num_threads;
   nh->param<int>("K", K, 16); //number of topics
   nh->param<int>("G_max", G_max,0); //max neighborhood size 0=no limit
   nh->param<int>("V", V,1500); //vocabulary size
@@ -65,7 +65,7 @@ int main(int argc, char**argv){
   nh->param<double>("gamma", gamma,0.0);
   nh->param<double>("tau", tau,2.0);  //beta(1,tau) is used to pick cells for refinement
   nh->param<int>("num_threads", num_threads,2);  //beta(1,tau) is used to pick cells for refinement
-  nh->param<int>("G_width_time", G_width_time,8);
+  nh->param<int>("G_time", G_time,8);
 
 
   ROS_INFO("Starting online topic modeling: K=%d, alpha=%f, beta=%f, gamma=%f",K,alpha,beta,gamma);
@@ -79,7 +79,7 @@ int main(int argc, char**argv){
   //  ros::ServiceServer refine_service = nh->advertiseService("refine_global", refine_topics_callback);
   //  ros::ServiceServer refine_online_service = nh->advertiseService("refine_online", refine_online_topics_callback);
 
-  rost = new ROST<int,neighbors<int>, hash<int> > (V, K, alpha, beta, G_width_time, hash<int>());
+  rost = new ROST<int,neighbors<int>, hash<int> > (V, K, alpha, beta, G_time, hash<int>());
   last_pose = -1;
   cerr<<"Processing words online."<<endl;
   atomic<bool> stop;   stop.store(false);
