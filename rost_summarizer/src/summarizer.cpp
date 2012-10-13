@@ -1,5 +1,5 @@
 #include <ros/ros.h>
-#include "rost_common/WordsObservation.h"
+#include "rost_common/WordObservation.h"
 #include "rost_common/Summary.h"
 #include "summarizer.hpp"
 #include "rost/markov.hpp"
