@@ -31,3 +31,4 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 
 rosbuild_add_executable(visualwords src/visualwords.cpp)
+rosbuild_add_executable(summary src/summary.cpp)

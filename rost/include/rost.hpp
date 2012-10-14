@@ -169,6 +169,14 @@ struct Cell{
     nZ[z_new]++;    
     Z_mutex[z_old].unlock();  Z_mutex[z_new].unlock();
   }
+  void shrink_to_fit(){
+    neighbors.shrink_to_fit();
+    W.shrink_to_fit();
+    Z.shrink_to_fit();
+    nW.shrink_to_fit();
+    nZ.shrink_to_fit();
+    Z_mutex.shrink_to_fit();
+  }
 };
 
 
@@ -185,6 +193,9 @@ struct ROST{
   size_t V, K, C;        //vocab size, topic size, #cells
   double alpha, beta;
   mt19937 engine;
+  //ranlux24_base engine;
+  //minstd_rand0 engine;
+
   uniform_int_distribution<int> uniform_K_distr;
   vector<vector<int>> nZW; //nZW[z][w] = freq of words of type w in topic z
   vector<int> weight_Z;
@@ -239,13 +250,13 @@ struct ROST{
   void relabel(int w, int z_old, int z_new){
     //    cerr<<"lock: "<<z_old<<"  "<<z_new<<endl;
     if(z_old == z_new) return;
-    //    lock(global_Z_mutex[z_old<z_new?z_old:z_new ], global_Z_mutex[z_old<z_new?z_new:z_old]);
-    if(z_old >= static_cast<int>(global_Z_mutex.size())){
-      cerr<<"z_old="<<z_old<<endl;
-    }
-    if(z_new >= static_cast<int>(global_Z_mutex.size())){
-      cerr<<"z_new="<<z_new<<endl;
-    }
+    //lock(global_Z_mutex[z_old<z_new?z_old:z_new ], global_Z_mutex[z_old<z_new?z_new:z_old]);
+    //if(z_old >= static_cast<int>(global_Z_mutex.size())){
+    //      cerr<<"z_old="<<z_old<<endl;
+    // }
+    //if(z_new >= static_cast<int>(global_Z_mutex.size())){
+    //  cerr<<"z_new="<<z_new<<endl;
+    // }
     assert(z_old < static_cast<int>(global_Z_mutex.size()));
     assert(z_new < static_cast<int>(global_Z_mutex.size()));
     if(z_old<z_new){      
@@ -299,6 +310,8 @@ struct ROST{
 
 
     //do the insertion
+    //c->W.resize(c->W.size()+words.size());
+    //c->Z.resize(c->Z.size()+words.size());
     for(auto w : words){
       c->W.push_back(w);
       //generate random topic label
@@ -309,6 +322,7 @@ struct ROST{
       c->nZ[z]++; 
       add_count(w,z);
     }
+    c->shrink_to_fit();
 
     if(newcell){
       C++;

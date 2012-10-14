@@ -67,7 +67,11 @@ struct orient_keypoints{
 
 static cv::Ptr<cv::FeatureDetector> get_feature_detector(const string& name, int num_features){
   cv::Ptr<cv::FeatureDetector> fd;
-  if(name=="Grid3ORB"){
+  if(name=="Grid2ORB"){
+    cv::Ptr<cv::FeatureDetector> orb(new cv::OrbFeatureDetector(num_features/4));
+    fd = cv::Ptr<cv::FeatureDetector>(new cv::GridAdaptedFeatureDetector(orb,num_features,2,2));;
+  }
+  else if(name=="Grid3ORB"){
     cv::Ptr<cv::FeatureDetector> orb(new cv::OrbFeatureDetector(num_features/9));
     fd = cv::Ptr<cv::FeatureDetector>(new cv::GridAdaptedFeatureDetector(orb,num_features,3,3));;
   }

@@ -10,6 +10,9 @@
   <url>http://ros.org/wiki/rost</url>
   <depend package="roscpp"/>
   <depend package="rost_common"/>
+  <export>
+    <cpp cflags="-I${prefix}/include" lflags="-L${prefix}/lib"/>
+  </export>
 </package>
 
 

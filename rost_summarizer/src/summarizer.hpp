@@ -21,7 +21,7 @@ public:
     //      cerr<<"p.size()="<<p.size()<<"  q.size()="<<q.size()<<endl;
     //      assert(p.size() == q.size());
     //    }
-    size_t len = std::min(p.size(), q.size());
+    //    size_t len = std::min(p.size(), q.size());
     //T p_total = std::accumulate(p.begin(), p.begin()+len,0);
     //    T q_total = std::accumulate(q.begin(), q.begin()+len,0);
     T pv, qv;

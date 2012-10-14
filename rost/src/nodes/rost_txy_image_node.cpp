@@ -1,5 +1,6 @@
 #include <ros/ros.h>
 #include <rost_common/WordObservation.h>
+#include <rost_common/GetTopicsForTime.h>
 #include "rost.hpp"
 
 using namespace std;
@@ -13,10 +14,23 @@ size_t last_refine_count;
 //vector<int> last_word_pose, last_word_scale;
 //set<pose_t> last_observation_poses;
 //map<int, vector<int>> word_for_pose; 
-map<pose_t, vector<int>> worddata_for_pose;  //stores [pose]-> {x_i,y_i,scale_i,.....}. 
+map<int, set<pose_t>> cellposes_for_time;  //list of all poses observed at a given time
+map<pose_t, vector<int>> worddata_for_pose;  //stores [pose]-> {x_i,y_i,scale_i,.....} for the current time
 
-int K, V; //number of topic types, number of word types
+int K, V, cell_width; //number of topic types, number of word types
 ros::Publisher topics_pub; 
+
+bool get_topics_for_time(rost_common::GetTopicsForTime::Request& request, rost_common::GetTopicsForTime::Response& response){
+  
+  set<pose_t>& poses = cellposes_for_time[request.seq];
+
+  for(auto& pose : poses){
+    vector<int> topics= rost->get_topics_for_pose(pose);
+    response.topics.insert(response.topics.end(), topics.begin(), topics.end()); 
+  }
+  response.K = rost->K;
+  return true;
+}
 
 template<typename W>
 void broadcast_topics(int time, const W& worddata_for_poses){
@@ -49,12 +63,10 @@ void words_callback(const rost_common::WordObservation::ConstPtr&  words){
     broadcast_topics(last_time, worddata_for_pose);
     size_t refine_count = rost->get_refine_count();
     cerr<<"#cells_refine: "<<refine_count - last_refine_count<<endl;  
-    last_time = observation_time;
     last_refine_count = refine_count;
     worddata_for_pose.clear();
   }
   vector<int> word_pose_cell(words->word_pose.size());
-  int cell_width=32;
 
   //split the words into different windows, each with its own pose (t,x,y)
   map<pose_t, vector<int>> words_for_pose;
@@ -68,12 +80,14 @@ void words_callback(const rost_common::WordObservation::ConstPtr&  words){
 
   for(auto & p: words_for_pose){
     rost->add_observation(p.first, p.second);
+    cellposes_for_time[words->seq].insert(p.first);
   }
+  last_time = observation_time;
 }
 
 
 int main(int argc, char**argv){
-  ros::init(argc, argv, "rost_1d");
+  ros::init(argc, argv, "rost");
   ros::NodeHandle *nh = new ros::NodeHandle("~");
 
   double alpha, beta, gamma, tau;//, G_width_space;
@@ -86,6 +100,7 @@ int main(int argc, char**argv){
   nh->param<double>("gamma", gamma,0.0);
   nh->param<double>("tau", tau,2.0);  //beta(1,tau) is used to pick cells for refinement
   nh->param<int>("num_threads", num_threads,2);  //beta(1,tau) is used to pick cells for refinement
+  nh->param<int>("cell_width", cell_width, 64);
   nh->param<int>("G_time", G_time,4);
   nh->param<int>("G_space", G_space,1);
 
@@ -95,6 +110,7 @@ int main(int argc, char**argv){
 
   topics_pub = nh->advertise<rost_common::WordObservation>("/topics", 1);
   ros::Subscriber sub = nh->subscribe("/words", 10, words_callback);
+  ros::ServiceServer get_topics_for_time_service = nh->advertiseService("get_topics_for_time", get_topics_for_time);
 
   //  ros::ServiceServer write_topics_service = nh->advertiseService("write_topics", service_write_topics_callback);
   //  ros::ServiceServer write_state_service = nh->advertiseService("write_state", service_write_state_callback);

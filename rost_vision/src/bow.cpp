@@ -276,7 +276,7 @@ int main(int argc, char**argv){
   if(use_grid_orb){
     feature_detector_names.push_back("Grid3ORB");
     feature_sizes.push_back(num_grid_orb);
-    feature_detector_names.push_back("Grid4ORB");
+    feature_detector_names.push_back("Grid2ORB");
     feature_sizes.push_back(num_grid_orb);
   }
 
