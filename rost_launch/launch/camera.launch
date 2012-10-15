@@ -39,7 +39,7 @@
 <arg name="tau" default="2.0"/>
 <arg name="topics.threads" default="4"/>
 <arg name="cell.width" default="160"/>
-<node pkg="rost" type="rost_txy_image_node" name="rost" >
+<node pkg="rost_topics" type="rost_txy_image_node" name="rost" >
   <param name="K" value="$(arg K)"/>
   <param name="V" value="$(arg V)"/>
   <param name="alpha" value="$(arg alpha)"/>

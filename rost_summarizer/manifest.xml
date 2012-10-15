@@ -10,7 +10,7 @@
   <url>http://ros.org/wiki/rost_summarizer</url>
   <depend package="roscpp"/>
   <depend package="rost_common"/>
-  <depend package="rost"/>
+  <depend package="rost_topics"/>
 
 </package>
 
