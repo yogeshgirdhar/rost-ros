@@ -5,6 +5,7 @@
 #include <cv_bridge/CvBridge.h>
 #include "rost_common/WordObservation.h"
 #include "rost_common/Summary.h"
+#include "rost_common/SummaryObservations.h"
 #include "draw_keypoints.hpp"
 #include <map>
 #include<iostream>
@@ -30,6 +31,7 @@ int colors_bgr[24][3]={{  7, 41,165}, {  0,155,220}, {  0,255,255}, {  0,202,132
 		       {255,172,163}, {114,196,159}, {184,223,229}, { 36, 49,141},
 		       {220, 66, 53}, {  0,104, 70}, { 18, 77,112}, {197, 33,105}};
 
+ros::ServiceClient image_cache_client;
 
 cv::Mat fit(cv::Mat img, int w, int h){
   float a = float(w) / float(h);
@@ -249,7 +251,7 @@ void draw_topics_hist(const vector<int>& topics, cv::Mat& hist_img){
     int hist_img_w = hist_img.cols; int hist_img_h=hist_img.rows;
     int bin_width = hist_img_w/(hist.size());
     for(size_t i=0;i<hist.size();++i){
-      rectangle(hist_img,Point(i*bin_width,hist_img_h), Point((i+1)*bin_width-1,hist_img_h - hist_img_h*hist[i]),colors[i%colors.size()],-1,CV_AA);
+      rectangle(hist_img,Point(i*bin_width,hist_img_h), Point((i+1)*bin_width-1,hist_img_h - hist_img_h*hist[i]),get_color(i),-1,CV_AA);
       rectangle(hist_img,Point(i*bin_width,hist_img_h), Point((i+1)*bin_width-1,hist_img_h - hist_img_h*hist[i]),cv::Scalar(0,0,0),1,CV_AA);
     }
 }
@@ -259,7 +261,7 @@ cv::Mat draw_topics_hist(const vector<int>& topics, int hist_img_w, int hist_img
     cv::Mat hist_img(hist_img_h,hist_img_w,CV_8UC3, background);
     int bin_width = hist_img_w/(hist.size());
     for(size_t i=0;i<hist.size();++i){
-      rectangle(hist_img,Point(i*bin_width,hist_img_h), Point((i+1)*bin_width-1,hist_img_h - hist_img_h*hist[i]),colors[i%colors.size()],-1,CV_AA);
+      rectangle(hist_img,Point(i*bin_width,hist_img_h), Point((i+1)*bin_width-1,hist_img_h - hist_img_h*hist[i]),get_color(i),-1,CV_AA);
       rectangle(hist_img,Point(i*bin_width,hist_img_h), Point((i+1)*bin_width-1,hist_img_h - hist_img_h*hist[i]),cv::Scalar(0,0,0),1,CV_AA);
     }
     return hist_img;
@@ -310,7 +312,7 @@ void show_summary(unsigned int mark){
   int nrows=std::ceil(std::sqrt(((float)summary.size())*3.0/4.0));
   int ncols=std::ceil((float)summary.size() / nrows);
 
-  cerr<<"Show sum: ";copy(summary.begin(), summary.end(), ostream_iterator<int>(cerr," ")); cerr<<endl;
+  //cerr<<"Show sum: ";copy(summary.begin(), summary.end(), ostream_iterator<int>(cerr," ")); cerr<<endl;
   if(images.find(*summary.begin())==images.end()){
     cerr<<"Could not find image: "<<*(summary.begin())<<endl;
     return;
@@ -350,12 +352,12 @@ void show_summary(unsigned int mark){
   summary_image = simage;
 }
 
-/*void summary_topics_callback(const rost_common::SummaryTopics::ConstPtr&  msg){
+void summary_observations_callback(const rost_common::SummaryObservations::ConstPtr&  msg){
   summary_topics.clear();
-  for(size_t i=0;i<msg->topics.size(); ++i){
-    summary_topics[msg->topics[i].image_seq] = msg->topics[i].topics;
+  for(size_t i=0;i<msg->summary.size(); ++i){
+    summary_topics[msg->summary[i].seq] = msg->summary[i].words;
   }  
-  }*/
+}
 
 void summary_callback(const rost_common::Summary::ConstPtr&  msg){
   summary.clear();
@@ -377,7 +379,7 @@ int main(int argc, char**argv){
   nh.param<int>("width",window_w, 1024);
   nh.param<int>("height",window_h, 768);
   nh.param<string>("vout",video_out, "");
-  nh.param<bool>("black",bg_black, true);
+  nh.param<bool>("black",bg_black, false);
   nh.param<bool>("topics",topics_mode, true);
   cerr<<"image source: "<<image_topic_name<<endl;
   //cv::namedWindow("live");
@@ -403,7 +405,9 @@ int main(int argc, char**argv){
   ros::Subscriber word_sub = nh.subscribe("/words", 10, words_callback);
   ros::Subscriber sum_sub = nh.subscribe("/summary", 60, summary_callback);
   //  ros::Subscriber local_surp_sub = nh.subscribe("/summarizer/local_surprise", 10, local_surprise_callback);
-  //  ros::Subscriber sum_top_sub = nh.subscribe("/summary_topics", 10, summary_topics_callback);
+  ros::Subscriber sum_obz_sub = nh.subscribe("/summary_observations", 10, summary_observations_callback);
+
+  //  image_cache_client =  nh.serviceClient<rost_common::GetImage>("image_cache/get_image");
 
   scoreplot = new ScorePlot(window_w-10,window_h/4);
   /*

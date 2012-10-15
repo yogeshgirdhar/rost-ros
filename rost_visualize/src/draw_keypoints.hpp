@@ -2,17 +2,31 @@
 #define ROST_VISUALIZE_DRAW_KEYPOINTS
 
 using namespace std;
-cv::Mat get_colors(int n_colors=32){
+cv::Mat get_colors(int n_colors=32, int value=255){
   cv::Mat bgr_colors, hsv_colors;
   hsv_colors.create(n_colors,1,CV_8UC3);
   bgr_colors.create(n_colors,1,CV_8UC3);
   for(int i=0;i<n_colors; ++i){
-    hsv_colors.at<cv::Vec3b>(i,0) = cv::Vec3b(160/n_colors*i,255,255);
+    hsv_colors.at<cv::Vec3b>(i,0) = cv::Vec3b(160/n_colors*i,255,value);
   }
   cv::cvtColor(hsv_colors, bgr_colors, CV_HSV2BGR);
   return bgr_colors;
 }
-
+cv::Scalar get_color(int i){
+  static cv::Mat bgr_colors_high = get_colors(16,255);
+  static cv::Mat bgr_colors_low = get_colors(16,127);
+  i = i%32;
+  if(i<16){
+    return cv::Scalar (bgr_colors_high.at<cv::Vec3b>(i,0)[0],
+		       bgr_colors_high.at<cv::Vec3b>(i,0)[1],
+		       bgr_colors_high.at<cv::Vec3b>(i,0)[2]);
+  }
+  else{
+    return cv::Scalar (bgr_colors_low.at<cv::Vec3b>(i-16,0)[0],
+		       bgr_colors_low.at<cv::Vec3b>(i-16,0)[1],
+		       bgr_colors_low.at<cv::Vec3b>(i-16,0)[2]);
+  }
+}
 
 cv::Mat draw_keypoints(const rost_common::WordObservation::ConstPtr&  z, cv::Mat img){
   int n_colors = min<int>(16, z->vocabulary_size);
@@ -31,10 +45,7 @@ cv::Mat draw_keypoints(const rost_common::WordObservation::ConstPtr&  z, cv::Mat
     }
 
     for(size_t i=0;i<keypoints.size(); ++i){
-      cv::Scalar color(bgr_colors.at<cv::Vec3b>(i,0)[0],
-		       bgr_colors.at<cv::Vec3b>(i,0)[1],
-		       bgr_colors.at<cv::Vec3b>(i,0)[2]);
-      cv::drawKeypoints(out_img, keypoints[i], out_img, color, cv::DrawMatchesFlags::DRAW_OVER_OUTIMG + cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+      cv::drawKeypoints(out_img, keypoints[i], out_img, get_color(i), cv::DrawMatchesFlags::DRAW_OVER_OUTIMG + cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
     }
   }
   return out_img;

@@ -1,1 +1,1 @@
-WordObservations[] summary
+WordObservation[] summary

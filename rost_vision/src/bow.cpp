@@ -120,8 +120,9 @@ namespace rost{
       feature_detector_names(feature_detector_names_),
       img_scale(img_scale_)
     {
-      cerr<<"Initializing Feature BOW"<<endl;
+      cerr<<"Initializing Feature BOW with detectors:";
       for(size_t i=0;i<feature_detector_names.size(); ++i){
+	cerr<<feature_detector_names[i]<<endl;
 	feature_detectors.push_back(get_feature_detector(feature_detector_names[i],feature_sizes_[i]));
       }
 
@@ -234,10 +235,10 @@ int main(int argc, char**argv){
   nhp.param<bool>("use_surf",use_surf, false);
   nhp.param<int>("num_surf",num_surf, 1000);
 
-  nhp.param<bool>("use_orb",use_orb, false);
+  nhp.param<bool>("use_orb",use_orb, true);
   nhp.param<int>("num_orb",num_orb, 1000);
 
-  nhp.param<bool>("use_grid_orb",use_grid_orb, true);
+  nhp.param<bool>("use_grid_orb",use_grid_orb, false);
   nhp.param<int>("num_grid_orb",num_grid_orb, 1000);
 
   nhp.param<bool>("use_hue",use_hue, true);
@@ -245,7 +246,7 @@ int main(int argc, char**argv){
 
   nhp.param<double>("scale",rost::img_scale, 1.0);
   nhp.param<string>("image",image_topic_name, "/image");
-  nhp.param<double>("rate",rate, 10);
+  nhp.param<double>("rate",rate, 0);
 
   nhp.param<string>("feature_descriptor",feature_descriptor_name, "ORB");
 
@@ -280,7 +281,7 @@ int main(int argc, char**argv){
     feature_sizes.push_back(num_grid_orb);
   }
 
-  if(use_hue || use_orb){
+  if(use_surf||use_grid_orb || use_orb){
     rost::word_extractors.push_back(cv::Ptr<rost::BOW>(new rost::FeatureBOW(v_begin,
 									    vocabulary_filename, 
 									    feature_detector_names,
@@ -300,11 +301,14 @@ int main(int argc, char**argv){
   image_transport::Subscriber sub = it.subscribe(image_topic_name, 1, rost::imageCallback);
   rost::words_pub = nhp.advertise<rost_common::WordObservation>("/words", 1);
 
-
-  ros::Rate loop_rate(rate);
-  while (ros::ok()){
-    ros::spinOnce();
-    loop_rate.sleep();
+  if(rate==0)
+    ros::spin();
+  else{
+    ros::Rate loop_rate(rate);
+    while (ros::ok()){
+      ros::spinOnce();
+      loop_rate.sleep();
+    }
   }
 
   return 0;

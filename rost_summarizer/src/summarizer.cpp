@@ -1,5 +1,6 @@
 #include <ros/ros.h>
 #include <rost_common/WordObservation.h>
+#include <rost_common/SummaryObservations.h>
 #include <rost_common/Summary.h>
 #include <rost_common/GetTopicsForTime.h>
 #include "summarizer.hpp"
@@ -17,12 +18,12 @@ using namespace std;
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 typedef Summary<> SummaryT;
 SummaryT *summary;
-ros::Publisher summary_pub; 
+ros::Publisher summary_pub, summary_observations_pub; 
 int S;
 double alpha;
 bool observations_are_topics;
 ros::ServiceClient topics_client;
-
+map<int, rost_common::WordObservation::Ptr> summary_observations;
 
 //update the topics for summary. 
 void update_summary_topics(){
@@ -41,10 +42,23 @@ void update_summary_topics(){
   else{
     summary->remove(id);
     summary->add( normalize(histogram(srv.response.topics, srv.response.K),alpha), id); 
+    summary_observations[id]->words=srv.response.topics;
   }
-  //  cerr<<"ok"<<endl;
 }
-void words_callback(const rost_common::WordObservation::ConstPtr&  msg){
+
+void publish_summary_observations(){
+  rost_common::SummaryObservations::Ptr summary_observations_msg(new rost_common::SummaryObservations);
+  vector<size_t> summary_uid(summary->uids.begin(), summary->uids.end());
+  map<int, rost_common::WordObservation::Ptr> summary_observations_new;
+  for(size_t i=0; i< summary_uid.size(); ++i){
+    summary_observations_new[summary_uid[i]] = summary_observations[summary_uid[i]];
+    summary_observations_msg->summary.push_back(*summary_observations[summary_uid[i]]);
+  }
+  summary_observations = summary_observations_new;
+  summary_observations_pub.publish(summary_observations_msg);
+}
+
+void words_callback(rost_common::WordObservation::Ptr  msg){
   if(observations_are_topics){
     update_summary_topics();
   }
@@ -52,11 +66,10 @@ void words_callback(const rost_common::WordObservation::ConstPtr&  msg){
   float surprise;
   int closest_seq;
   tie(surprise,closest_seq)=summary->surprise(observation);
-  //cerr<<"Surprise: "<<surprise<<"  Threshold:"<<summary->threshold<<endl;
   if(surprise >= summary->threshold){
-    //cerr<<"ADD"<<endl;
     summary->add(observation, msg->seq);
     summary->update_threshold();
+    summary_observations[msg->seq]=msg;
   }
   rost_common::Summary::Ptr summary_msg(new rost_common::Summary);
   summary_msg->seq = msg->seq;
@@ -65,6 +78,7 @@ void words_callback(const rost_common::WordObservation::ConstPtr&  msg){
   summary_msg->closest_seq = closest_seq;
   summary_msg->summary.insert(summary_msg->summary.begin(),summary->uids.begin(), summary->uids.end());
   summary_pub.publish(summary_msg);
+  publish_summary_observations();
 }
 
 
@@ -79,8 +93,9 @@ int main(int argc, char**argv){
 
   summary = new Summary<>(S,thresholding);
 
-  ros::Subscriber sub = nh.subscribe("/topics", 1, words_callback);
-  summary_pub = nh.advertise<rost_common::Summary>("/summary", 1);
+  ros::Subscriber sub = nh.subscribe("/topics", 10, words_callback);
+  summary_pub = nh.advertise<rost_common::Summary>("/summary", 10);
+  summary_observations_pub = nh.advertise<rost_common::SummaryObservations>("/summary_observations", 10);
 
   if(observations_are_topics){
     topics_client =  nh.serviceClient<rost_common::GetTopicsForTime>("/rost/get_topics_for_time", true);
