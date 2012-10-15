@@ -1,0 +1,74 @@
+<launch>
+
+<arg name="vis.width" default="1024"/>
+<arg name="vis.height" default="768"/>
+<arg name="vis.vout" default=""/>
+<arg name="vis.blackbg" default="false"/>
+<node pkg="rost_visualize" type="summary" name="summary_viewer">
+  <param name="vout" value="$(arg vis.vout)"/> 
+  <param name="width" value="$(arg vis.width)"/>
+  <param name="height" value="$(arg vis.height)"/>
+  <param name="black" value="$(arg vis.blackbg)"/>	
+</node>
+
+
+<arg name="file"/>
+<arg name="video.begin" default="0"/>
+<arg name="video.end" default="-1"/>
+<arg name="subsample" default="1"/>
+<arg name="loop" default="false"/>
+<arg name="scale" default="1.0"/>
+<arg name="rate" default="5"/>
+
+<include file="$(find cv_image_source)/launch/file.launch">
+	 <arg name="file"    value="$(arg file)"/>
+	 <arg name="vbegin"  value="$(arg video.begin)" />
+	 <arg name="vend"    value="$(arg video.end)" />
+	 <arg name="subsample" value="$(arg subsample)" />
+	 <arg name="loop"    value="$(arg loop)"/>
+	 <arg name="scale"   value="$(arg scale)"/>
+	 <arg name="rate"    value="$(arg rate)"/>	 
+</include>
+
+
+<arg name="bow.hue" default="true"/>
+<arg name="bow.intensity" default="false"/>
+<arg name="bow.orb" default="true"/>
+<arg name="bow.surf" default="false"/>
+<include file="$(find rost_vision)/launch/visualwords.xml">
+  <arg name="hue" value="$(arg bow.hue)"/>
+  <arg name="intensity" value="$(arg bow.intensity)"/>
+  <arg name="orb" value="$(arg bow.orb)"/>
+  <arg name="surf" value="$(arg bow.surf)"/>
+</include>
+
+
+<arg name="K" default="16"/>
+<arg name="V" default="5500"/>
+<arg name="alpha" default="0.1"/>
+<arg name="beta" default="0.1"/>
+<arg name="tau" default="2.0"/>
+<arg name="topics.threads" default="4"/>
+<arg name="cell.width" default="160"/>
+<node pkg="rost" type="rost_txy_image_node" name="rost" >
+  <param name="K" value="$(arg K)"/>
+  <param name="V" value="$(arg V)"/>
+  <param name="alpha" value="$(arg alpha)"/>
+  <param name="beta" value="$(arg beta)"/>
+  <param name="tau" value="$(arg tau)"/>
+  <param name="num_threads" value="$(arg topics.threads)"/>
+  <param name="cell_width" value="$(arg cell.width)"/>
+</node>
+
+
+<arg name="S" default="16"/>
+<arg name="summary.threshold" default="auto"/>
+<arg name="summary.topics" default="true"/>
+<node pkg="rost_summarizer" type="summarizer" name="summarizer">
+  <param name="S" value="$(arg S)"/>
+  <param name="topics" value="$(arg summary.topics)"/>
+  <param name="threshold" value="$(arg summary.threshold)"/>
+</node>
+
+
+</launch>
