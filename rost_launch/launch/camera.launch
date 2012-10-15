@@ -2,10 +2,10 @@
 
 <arg name="vis.width" default="1024"/>
 <arg name="vis.height" default="768"/>
-<arg name="vis.vout" default=""/>
+<arg name="vout" default=""/>
 <arg name="vis.blackbg" default="false"/>
 <node pkg="rost_visualize" type="summary" name="summary_viewer">
-  <param name="vout" value="$(arg vis.vout)"/> 
+  <param name="vout" value="$(arg vout)"/> 
   <param name="width" value="$(arg vis.width)"/>
   <param name="height" value="$(arg vis.height)"/>
   <param name="black" value="$(arg vis.blackbg)"/>	
