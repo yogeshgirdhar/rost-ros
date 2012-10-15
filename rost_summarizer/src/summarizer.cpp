@@ -27,13 +27,13 @@ map<int, rost_common::WordObservation::Ptr> summary_observations;
 
 //update the topics for summary. 
 void update_summary_topics(){
-  cerr<<"Updating summary...";
+  //cerr<<"Updating summary...";
   vector<size_t> summary_uid(summary->uids.begin(), summary->uids.end());
   if(summary_uid.size()==0) return;
   static size_t last = 0;
   if(last >= summary_uid.size()) last = 0;
   size_t id = summary_uid[last++];
-  cerr<<" id ="<<id<<endl;
+  //cerr<<" id ="<<id<<endl;
   rost_common::GetTopicsForTime srv;
   srv.request.seq=id;
   if(! topics_client.call(srv)){
@@ -42,7 +42,12 @@ void update_summary_topics(){
   else{
     summary->remove(id);
     summary->add( normalize(histogram(srv.response.topics, srv.response.K),alpha), id); 
-    summary_observations[id]->words=srv.response.topics;
+    if(summary_observations.find(id)!=summary_observations.end()){
+      summary_observations[id]->words=srv.response.topics;
+    }		
+    else{
+      ROS_WARN("WARNING: %d  not found in summary_observations[]",id);
+    }
   }
 }
 
@@ -51,8 +56,12 @@ void publish_summary_observations(){
   vector<size_t> summary_uid(summary->uids.begin(), summary->uids.end());
   map<int, rost_common::WordObservation::Ptr> summary_observations_new;
   for(size_t i=0; i< summary_uid.size(); ++i){
-    summary_observations_new[summary_uid[i]] = summary_observations[summary_uid[i]];
-    summary_observations_msg->summary.push_back(*summary_observations[summary_uid[i]]);
+    rost_common::WordObservation::Ptr z = summary_observations[summary_uid[i]];
+    if(z){
+      assert(z);
+      summary_observations_new[summary_uid[i]] = z;
+      summary_observations_msg->summary.push_back(*z);
+    }
   }
   summary_observations = summary_observations_new;
   summary_observations_pub.publish(summary_observations_msg);

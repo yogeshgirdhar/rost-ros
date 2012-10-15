@@ -315,9 +315,9 @@ void show_summary(unsigned int mark){
   //cerr<<"Show sum: ";copy(summary.begin(), summary.end(), ostream_iterator<int>(cerr," ")); cerr<<endl;
   if(images.find(*summary.begin())==images.end()){
     cerr<<"Could not find image: "<<*(summary.begin())<<endl;
-    return;
+    //return;
   }
-  cv::Mat img0 = images[*summary.begin()];
+  cv::Mat img0 = images[* (-- (summary.end()))];
 
   int width=ncols*img0.cols;
   int width1=img0.cols;
