@@ -52,6 +52,19 @@ T standardize_angle( T v, T N=180){
   return r;
 }
 
+template<typename Pose>
+int pose_distance(const Pose& p1, const Pose& p2){
+  int d=0;
+  for(size_t i=0;i<p1.size(); ++i){
+    d+= std::abs(p1[i] - p2[i]);
+  }
+  return d;
+}
+
+template<>
+int pose_distance<int>(const int& p1, const int& p2){
+  return std::abs(p1-p2);
+}
 
 //neighbors functor returns the neighbors of the given pose 
 //template<typename T>
@@ -139,13 +152,13 @@ struct Cell{
   vector<size_t> neighbors;
   vector<int> W; //word labels
   vector<int> Z; //topic labels
-  vector<int> nW; //distribution/count of W
+  //vector<int> nW; //distribution/count of W
   vector<int> nZ; //distribution/count of Z
   mutex cell_mutex;
   vector<mutex> Z_mutex;
   Cell(size_t id_, size_t vocabulary_size, size_t topics_size):
     id(id_),
-    nW(vocabulary_size, 0),
+    //nW(vocabulary_size, 0),
     nZ(topics_size, 0),
     Z_mutex(topics_size)
   {
@@ -173,13 +186,20 @@ struct Cell{
     neighbors.shrink_to_fit();
     W.shrink_to_fit();
     Z.shrink_to_fit();
-    nW.shrink_to_fit();
+    //nW.shrink_to_fit();
     nZ.shrink_to_fit();
     Z_mutex.shrink_to_fit();
   }
 };
 
-
+template<typename T>
+struct scaled_plus{
+  T scale;
+  scaled_plus(const T& scale_):scale(scale_){}
+  T operator()(const T& v1, const T& v2) const{
+    return v1 + v2/scale;
+  }
+};
 
 template<typename PoseT, 
 	 typename PoseNeighborsT=neighbors<PoseT>, 
@@ -189,6 +209,7 @@ struct ROST{
   PoseHashT pose_hash;
   unordered_map<PoseT, size_t , PoseHashT> cell_lookup;
   vector<shared_ptr<Cell>> cells;
+  vector<PoseT> cell_pose;
   mutex cells_mutex;     //lock for cells, since cells can grow in size
   size_t V, K, C;        //vocab size, topic size, #cells
   double alpha, beta;
@@ -286,6 +307,7 @@ struct ROST{
       c = make_shared<Cell>(C,V,K);
       cells_mutex.lock();
       cells.push_back(c);
+      cell_pose.push_back(pose);
       cells_mutex.unlock();
 
       c->cell_mutex.lock();
@@ -318,7 +340,7 @@ struct ROST{
       int z = uniform_K_distr(engine);
       c->Z.push_back(z);
       //update the histograms
-      c->nW[w]++; 
+      //c->nW[w]++; 
       c->nZ[z]++; 
       add_count(w,z);
     }
@@ -342,6 +364,7 @@ struct ROST{
     for(auto gid: c.neighbors){
       if(gid <C){
 	auto g = get_cell(gid); 
+	//	vector<int> nZgi = g->nZ.
 	transform(g->nZ.begin(), g->nZ.end(), nZg.begin(), nZg.begin(), plus<int>());
       }
     }
@@ -381,6 +404,7 @@ struct ROST{
       if(gid <C){
 	auto g = get_cell(gid); 
 	transform(g->nZ.begin(), g->nZ.end(), nZg.begin(), nZg.begin(), plus<int>());
+	//	transform(g->nZ.begin(), g->nZ.end(), nZg.begin(), nZg.begin(), scaled_plus<int>(pose_distance(cell_pose[c.id], cell_pose[g.id])));
       }
     }
     transform(c.nZ.begin(), c.nZ.end(), nZg.begin(), nZg.begin(), plus<int>());
@@ -448,19 +472,20 @@ template<typename R, typename Stop>
 void dowork_parallel_refine_online(R* rost, double tau, int thread_id, Stop stop){
   gamma_distribution<double> gamma1(tau,1.0);
   gamma_distribution<double> gamma2(1.0,1.0);
-  
+  int now_size = 200;
+ 
   while(! stop->load() ){
     double r_gamma1 = gamma1(rost->engine), r_gamma2 = gamma2(rost->engine);
     double r_beta = r_gamma1/(r_gamma1+r_gamma2);
     double p_refine_current = generate_canonical<double, 10>(rost->engine);
     if(rost->C > 0){
       size_t cid;
-      if(p_refine_current < 0.9 || rost->C < 10){
+      if(p_refine_current < 0.9 || rost->C < now_size){
 	cid = floor(r_beta * static_cast<double>(rost->C));
 	//cerr<<"global: "<<cid<<endl;
       }
       else{
-	cid = rost->C -10 + floor(r_beta * 10);
+	cid = max<int>(0,rost->C - now_size + floor(r_beta * now_size));
 	//cerr<<"local: "<<cid<<"/"<<rost->C<<endl;
       }
       if(cid >= rost->C) 

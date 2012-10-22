@@ -16,33 +16,6 @@
 using namespace std;
 
 
-typedef array<int,6> Pose6i;
-typedef array<int,3> Pose3i;
-typedef array<int,1> Posei;
-
-
-ostream& operator<<(ostream& out, const array<int,3>& v){
-  for(auto a : v){
-    out<<a<<" ";
-  }  
-  return out;
-}
-ostream& operator<<(ostream& out, const array<int,6>& v){
-  for(auto a : v){
-    out<<a<<" ";
-  }  
-  return out;
-}
-
-
-/*ostream& operator<<(ostream& out, const Pose6i& v){
-  for(auto a : v){
-    out<<a<<" ";
-  }  
-  return out;
-  }*/
-
-
 //maps the v to [-N,N)
 template<typename T>
 T standardize_angle( T v, T N=180){  
@@ -161,6 +134,9 @@ struct Cell{
     return r;
   }
   void relabel(size_t i, int z_old, int z_new){
+    //assert(z_old <nZ.size() && z_old >=0);
+    //assert(z_new <nZ.size() && z_new >=0);
+
     if(z_old == z_new)
       return;
     lock(Z_mutex[z_old], Z_mutex[z_new]);
@@ -235,6 +211,7 @@ struct ROST{
 	gammaZ[i]=0;
       }
     }
+    assert(K >= K_active);
   }
 
   //compute maximum likelihood estimate for topics in the cell for the given pose
@@ -269,6 +246,8 @@ struct ROST{
   }
 
   void relabel(int w, int z_old, int z_new){
+    //assert(z_old <nZW.size() && z_old >=0);
+    //assert(z_new <nZW.size() && z_new >=0);
     //    cerr<<"lock: "<<z_old<<"  "<<z_new<<endl;
     if(z_old == z_new) return;
 
@@ -329,6 +308,7 @@ struct ROST{
       c->W.push_back(w);
       //generate random topic label
       int z = uniform_K_distr(engine) % K_active;
+      //assert(z < K && z >=0);
       c->Z.push_back(z);
       //update the histograms
       c->nZ[z]++; 
@@ -376,13 +356,14 @@ struct ROST{
       if(K_active < K){
 	pz[K_active]=alpha*gamma/V;
       }
-      //if(K_active < K) {copy(pz.begin(), pz.end(), ostream_iterator<float>(cerr," ")); cerr<<endl;}
+
       discrete_distribution<> dZ(pz.begin(), pz.end());
       int z_new = min<int>(dZ(engine), fixed_K ? K-1 : K_active.load() );
-      assert(z_new >=0);
+
       if(z_new == K_active){
-	cerr<<"************spwaning topic: "<<z_new<<endl;
+	cerr<<"************spawning topic #"<<z_new+1<<endl;
 	K_active++;
+	pz.resize(K_active+1,0);
       }
 
       nZg[z_new]++;
