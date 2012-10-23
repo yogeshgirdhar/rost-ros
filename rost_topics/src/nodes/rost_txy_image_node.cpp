@@ -62,7 +62,8 @@ void words_callback(const rost_common::WordObservation::ConstPtr&  words){
   if(last_time>=0 && (last_time != observation_time)){
     broadcast_topics(last_time, worddata_for_pose);
     size_t refine_count = rost->get_refine_count();
-    cerr<<"#cells_refine: "<<refine_count - last_refine_count<<endl;  
+    ROS_INFO("#cells_refine: %d",refine_count - last_refine_count);
+    //    cerr<<"#cells_refine: "<<refine_count - last_refine_count<<endl;  
     last_refine_count = refine_count;
     worddata_for_pose.clear();
   }
