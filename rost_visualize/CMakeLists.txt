@@ -28,7 +28,10 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #rosbuild_link_boost(${PROJECT_NAME} thread)
 #rosbuild_add_executable(example examples/example.cpp)
 #target_link_libraries(example ${PROJECT_NAME})
-
+FIND_PACKAGE( OpenCV REQUIRED )
 
 rosbuild_add_executable(visualwords src/visualwords.cpp)
 rosbuild_add_executable(summary src/summary.cpp)
+
+target_link_libraries(visualwords ${OpenCV_LIBS})
+target_link_libraries(summary ${OpenCV_LIBS})
