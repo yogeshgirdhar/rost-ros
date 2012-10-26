@@ -1,3 +1,2 @@
-uint32 image_seq
-
-float32 perplexity
+uint32 seq
+float64 perplexity

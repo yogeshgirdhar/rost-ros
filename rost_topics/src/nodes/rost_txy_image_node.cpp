@@ -1,6 +1,9 @@
 #include <ros/ros.h>
 #include <rost_common/WordObservation.h>
 #include <rost_common/GetTopicsForTime.h>
+#include <rost_common/RefineTopics.h>
+#include <rost_common/Perplexity.h>
+#include <rost_common/GetModelPerplexity.h>
 #include "rost.hpp"
 
 using namespace std;
@@ -10,25 +13,55 @@ typedef ROST<pose_t,neighbors<pose_t>, hash_container<pose_t> > ROST_t;
 ROST_t * rost=NULL;
 int last_time;
 size_t last_refine_count;
-//vector<int> last_observation_pose;
-//vector<int> last_word_pose, last_word_scale;
-//set<pose_t> last_observation_poses;
-//map<int, vector<int>> word_for_pose; 
+
 map<int, set<pose_t>> cellposes_for_time;  //list of all poses observed at a given time
 map<pose_t, vector<int>> worddata_for_pose;  //stores [pose]-> {x_i,y_i,scale_i,.....} for the current time
 
 int K, V, cell_width; //number of topic types, number of word types
-ros::Publisher topics_pub; 
+double k_alpha, k_beta, k_gamma, k_tau;
+int G_time, G_space, num_threads;
+ros::Publisher topics_pub, perplexity_pub; 
+
+
+//service callback:
+//refine topics for given number of cells
+bool get_model_perplexity(rost_common::GetModelPerplexity::Request& request, rost_common::GetModelPerplexity::Response& response){
+  ROS_INFO("Computing model perplexity");
+  for(auto& time_poses : cellposes_for_time){
+    int seq = time_poses.first;
+    double seq_ppx=0;
+    int n_words=0;
+    for(auto& pose : time_poses.second){
+      vector<int> topics; double ppx;
+      tie(topics,ppx) = rost->get_topics_and_ppx_for_pose(pose);
+      n_words += topics.size();
+      seq_ppx+=ppx;
+    }
+    response.perplexity.push_back(exp(-seq_ppx/n_words));
+  }
+  return true;
+}
+
+//service callback:
+//refine topics for given number of cells
+bool refine_topics(rost_common::RefineTopics::Request& request, rost_common::RefineTopics::Response& response){
+  ROS_INFO("Refining %u cells, with tau=%f",request.iterations, k_tau);
+  parallel_refine_tau(rost, num_threads, k_tau, request.iterations);
+  return true;
+}
 
 bool get_topics_for_time(rost_common::GetTopicsForTime::Request& request, rost_common::GetTopicsForTime::Response& response){
   
   set<pose_t>& poses = cellposes_for_time[request.seq];
-
+  response.perplexity=0;
   for(auto& pose : poses){
-    vector<int> topics= rost->get_topics_for_pose(pose);
-    response.topics.insert(response.topics.end(), topics.begin(), topics.end()); 
+    vector<int> topics; double ppx;
+    tie(topics,ppx) = rost->get_topics_and_ppx_for_pose(pose);
+    response.topics.insert(response.topics.end(), topics.begin(), topics.end());
+    response.perplexity+=ppx;
   }
   response.K = rost->K;
+  response.perplexity=exp(-response.perplexity/response.topics.size());
   return true;
 }
 
@@ -36,13 +69,18 @@ template<typename W>
 void broadcast_topics(int time, const W& worddata_for_poses){
   cerr<<"Requesting topics for time: "<<time<<endl;
   rost_common::WordObservation::Ptr z(new rost_common::WordObservation);
+  rost_common::Perplexity::Ptr msg_ppx(new rost_common::Perplexity);
   z->source="topics";
   z->vocabulary_begin = 0;
   z->vocabulary_size  = K;  
   z->seq =time;
   z->observation_pose.push_back(time);
+  msg_ppx->perplexity=0;
+  msg_ppx->seq = time;
+  int n_words=0; double sum_log_p_word=0;
   for(auto& pose_data: worddata_for_pose){
-    vector<int> topics= rost->get_topics_for_pose(pose_data.first);
+    vector<int> topics; double ppx;
+    tie(topics,ppx)=rost->get_topics_and_ppx_for_pose(pose_data.first);
     z->words.insert(z->words.end(), topics.begin(), topics.end()); 
     vector<int>& word_data = pose_data.second;
     assert(topics.size()*3 == word_data.size()); //x,y,scale
@@ -51,8 +89,12 @@ void broadcast_topics(int time, const W& worddata_for_poses){
       z->word_pose.push_back(*wi++);  z->word_pose.push_back(*wi++);  //x,y
       z->word_scale.push_back(*wi++);  //scale
     }
+    n_words+=topics.size();
+    sum_log_p_word+=ppx;
   }
+  msg_ppx->perplexity= exp(-sum_log_p_word/n_words);
   topics_pub.publish(z);
+  perplexity_pub.publish(msg_ppx);
   //cerr<<"Publish topics "<<pose<<": "<<z->words.size()<<endl;
 }
 
@@ -62,7 +104,7 @@ void words_callback(const rost_common::WordObservation::ConstPtr&  words){
   if(last_time>=0 && (last_time != observation_time)){
     broadcast_topics(last_time, worddata_for_pose);
     size_t refine_count = rost->get_refine_count();
-    ROS_INFO("#cells_refine: %d",refine_count - last_refine_count);
+    ROS_INFO("#cells_refine: %u",static_cast<unsigned>(refine_count - last_refine_count));
     //    cerr<<"#cells_refine: "<<refine_count - last_refine_count<<endl;  
     last_refine_count = refine_count;
     worddata_for_pose.clear();
@@ -91,44 +133,51 @@ int main(int argc, char**argv){
   ros::init(argc, argv, "rost");
   ros::NodeHandle *nh = new ros::NodeHandle("~");
 
-  double alpha, beta, gamma, tau;//, G_width_space;
-  int G_time, G_space, num_threads;
+  bool polled_refine;
   nh->param<int>("K", K, 16); //number of topics
   nh->param<int>("V", V,1500); //vocabulary size
   //  nh->param<int>("max_refines_per_iter", max_refines_per_iter,0); //vocabulary size 1000 + 16 + 18
-  nh->param<double>("alpha", alpha,0.1);
-  nh->param<double>("beta", beta,0.1);
-  nh->param<double>("gamma", gamma,0.0);
-  nh->param<double>("tau", tau,2.0);  //beta(1,tau) is used to pick cells for refinement
+  nh->param<double>("alpha", k_alpha,0.1);
+  nh->param<double>("beta", k_beta,0.1);
+  nh->param<double>("gamma", k_gamma,0.0);
+  nh->param<double>("tau", k_tau,2.0);  //beta(1,tau) is used to pick cells for refinement
   nh->param<int>("num_threads", num_threads,2);  //beta(1,tau) is used to pick cells for refinement
   nh->param<int>("cell_width", cell_width, 64);
   nh->param<int>("G_time", G_time,4);
   nh->param<int>("G_space", G_space,1);
+  nh->param<bool>("polled_refine", polled_refine,false);
 
 
-  ROS_INFO("Starting online topic modeling: K=%d, alpha=%f, beta=%f, gamma=%f",K,alpha,beta,gamma);
+  ROS_INFO("Starting online topic modeling: K=%d, alpha=%f, beta=%f, gamma=%f tau=%f",K,k_alpha,k_beta,k_gamma,k_tau);
 
 
   topics_pub = nh->advertise<rost_common::WordObservation>("/topics", 1);
-  ros::Subscriber sub = nh->subscribe("/words", 10, words_callback);
+  perplexity_pub = nh->advertise<rost_common::Perplexity>("/perplexity", 1);
+  ros::Subscriber sub = nh->subscribe("/words", 100, words_callback);
   ros::ServiceServer get_topics_for_time_service = nh->advertiseService("get_topics_for_time", get_topics_for_time);
+  ros::ServiceServer refine_service = nh->advertiseService("refine", refine_topics);
+  ros::ServiceServer get_model_perplexity_service = nh->advertiseService("get_model_perplexity", get_model_perplexity);
 
-  //  ros::ServiceServer write_topics_service = nh->advertiseService("write_topics", service_write_topics_callback);
-  //  ros::ServiceServer write_state_service = nh->advertiseService("write_state", service_write_state_callback);
-  //  ros::ServiceServer refine_service = nh->advertiseService("refine_global", refine_topics_callback);
-  //  ros::ServiceServer refine_online_service = nh->advertiseService("refine_online", refine_online_topics_callback);
   pose_t G{{G_time, G_space, G_space}};
-  rost = new ROST_t (V, K, alpha, beta, G);
+  rost = new ROST_t (V, K, k_alpha, k_beta, G);
   last_time = -1;
-  cerr<<"Processing words online."<<endl;
-  atomic<bool> stop;   stop.store(false);
-  auto workers =  parallel_refine_online(rost, tau, num_threads, &stop);
 
-  cerr<<"Spinning..."<<endl;
-  ros::spin();
-  stop.store(true);  //signal workers to stop
-  for(auto t:workers){  //wait for them to stop
-    t->join();
+
+  if(polled_refine){ //refine when requested    
+    ROS_INFO("Topics will be refined on request.");
+    ros::spin();
+  }
+  else{ //refine automatically
+    ROS_INFO("Topics will be refined online.");
+    atomic<bool> stop;   stop.store(false);
+    auto workers =  parallel_refine_online(rost, k_tau, num_threads, &stop);
+    
+    cerr<<"Spinning..."<<endl;
+    ros::spin();
+    stop.store(true);  //signal workers to stop
+    for(auto t:workers){  //wait for them to stop
+      t->join();
+    }
   }
   delete rost;
   return 0;

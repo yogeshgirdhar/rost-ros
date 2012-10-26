@@ -2,3 +2,4 @@ int32 seq
 ---
 int32[] topics
 int32 K
+float64 perplexity

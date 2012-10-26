@@ -156,6 +156,7 @@ struct Cell{
   vector<int> nZ; //distribution/count of Z
   mutex cell_mutex;
   vector<mutex> Z_mutex;
+  double perplexity;
   Cell(size_t id_, size_t vocabulary_size, size_t topics_size):
     id(id_),
     //nW(vocabulary_size, 0),
@@ -248,6 +249,21 @@ struct ROST{
     }
     else
       return vector<int>();
+  }
+
+  //compute maximum likelihood estimate for topics in the cell for the given pose
+  tuple<vector<int>,double> get_topics_and_ppx_for_pose(const PoseT& pose){
+    //lock_guard<mutex> lock(cells_mutex);
+    vector<int> topics;
+    double ppx =0;
+    auto cell_it = cell_lookup.find(pose);
+    if(cell_it != cell_lookup.end()){ 
+      auto c = get_cell(cell_it->second);
+      lock_guard<mutex> lock(c->cell_mutex);
+      topics = estimate(*c,true);
+      ppx = c->perplexity;
+    }
+    return make_tuple(topics,ppx);
   }
 
   shared_ptr<Cell> get_cell(size_t cid){
@@ -364,20 +380,19 @@ struct ROST{
     for(auto gid: c.neighbors){
       if(gid <C){
 	auto g = get_cell(gid); 
-	//	vector<int> nZgi = g->nZ.
 	transform(g->nZ.begin(), g->nZ.end(), nZg.begin(), nZg.begin(), plus<int>());
       }
     }
 
     transform(c.nZ.begin(), c.nZ.end(), nZg.begin(), nZg.begin(), plus<int>());
 
+    
     vector<double> pz(K,0);
 
     for(size_t i=0;i<c.W.size(); ++i){
       int w = c.W[i];
       int z = c.Z[i];
       nZg[z]--;
-
       for(size_t k=0;k<K; ++k){
 	int nkw = max<int>(0,nZW[k][w]-1);
 	int weight_k = max<int>(0,weight_Z[k]-1); 
@@ -393,7 +408,7 @@ struct ROST{
   }
 
   //estimate maximum likelihood topics for the cell
-  vector<int> estimate(Cell& c){
+  vector<int> estimate(Cell& c, bool update_ppx=false){
     if(c.id >=C)
       return vector<int>();
 
@@ -404,10 +419,16 @@ struct ROST{
       if(gid <C){
 	auto g = get_cell(gid); 
 	transform(g->nZ.begin(), g->nZ.end(), nZg.begin(), nZg.begin(), plus<int>());
-	//	transform(g->nZ.begin(), g->nZ.end(), nZg.begin(), nZg.begin(), scaled_plus<int>(pose_distance(cell_pose[c.id], cell_pose[g.id])));
       }
     }
     transform(c.nZ.begin(), c.nZ.end(), nZg.begin(), nZg.begin(), plus<int>());
+
+    int weight_g=0;
+    double ppx_sum=0;
+    if(update_ppx){ 
+      c.perplexity=0;
+      weight_g = accumulate(nZg.begin(), nZg.end(),0);
+    }
 
     vector<double> pz(K,0);
     vector<int> Zc(c.W.size());
@@ -416,14 +437,19 @@ struct ROST{
       int w = c.W[i];
       int z = c.Z[i];
       nZg[z]--;
+      if(update_ppx) ppx_sum=0;
 
       for(size_t k=0;k<K; ++k){
 	int nkw = nZW[k][w];      
 	int weight_k = weight_Z[k];
 	pz[k] = (nkw+beta)/(weight_k + beta*V) * (nZg[k]+alpha);
+	if(update_ppx) ppx_sum += pz[k]/(weight_g + alpha*K);
       } 
+      if(update_ppx)c.perplexity+=log(ppx_sum);
       Zc[i]= max_element(pz.begin(), pz.end()) - pz.begin();
-    } 
+    }
+    //if(update_ppx) c.perplexity=exp(-c.perplexity/c.W.size());
+
     return Zc;
   }
 
@@ -467,12 +493,40 @@ void parallel_refine(R* rost, int nt){
   }
 }
 
+// does #iter number of cell refinements
+// cell_ids to be refined are distributed by Beta(tau,1)
+// tau > 1 => higher cell_ids are refined more often
+// nt = number of threads to use
+template<typename R>
+void parallel_refine_tau(R* rost, int nt, double tau, size_t iter){
+  auto todo = make_shared<vector<size_t>>(iter);
+  gamma_distribution<double> gamma1(tau,1.0);
+  gamma_distribution<double> gamma2(1.0,1.0);
+  for(size_t i=0;i<iter; ++i){
+    double r_gamma1 = gamma1(rost->engine), r_gamma2 = gamma2(rost->engine);
+    double r_beta = r_gamma1/(r_gamma1+r_gamma2);
+    size_t cid = floor(r_beta * static_cast<double>(rost->C));
+    cid = min<size_t>(cid, rost->C-1);
+    (*todo)[i]=cid;
+  }
+  auto m = make_shared<mutex>();  
+  vector<shared_ptr<thread>> threads;
+  for(int i=0;i<nt;++i){
+    //threads.emplace_back(dowork_parallel_refine,rost,todo ,m);
+    threads.push_back(make_shared<thread>(dowork_parallel_refine<R>,rost,todo ,m, i));
+  }
+  
+  for(auto&t: threads){
+    t->join();
+  }
+}
+
 
 template<typename R, typename Stop>
 void dowork_parallel_refine_online(R* rost, double tau, int thread_id, Stop stop){
   gamma_distribution<double> gamma1(tau,1.0);
   gamma_distribution<double> gamma2(1.0,1.0);
-  int now_size = 200;
+  size_t now_size = 200;
  
   while(! stop->load() ){
     double r_gamma1 = gamma1(rost->engine), r_gamma2 = gamma2(rost->engine);
