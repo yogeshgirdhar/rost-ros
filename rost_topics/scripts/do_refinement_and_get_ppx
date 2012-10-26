@@ -1,0 +1,6 @@
+#!/bin/bash
+for i in `seq 100`; do
+    echo $i
+    rosservice call /rost/get_model_perplexity | sed -e 's/\,/\ /g' -e 's/[a-z]*//g' -e 's/[\:\[\]]*//g'  >>perplexity.txt
+    rosservice call /rost/refine 10000
+done
