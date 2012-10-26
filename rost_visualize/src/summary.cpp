@@ -193,34 +193,24 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg)
 }
 
 void words_callback(const rost_common::WordObservation::ConstPtr&  msg){
-  scales[msg->seq]=msg->word_scale;
-  coordinates[msg->seq]=msg->word_pose;
-  if(!topics_mode){
+  //cerr<<"Received topic for image:"<<msg->image_seq<<endl;
+  if(topics_mode) return;
+  if(images.find(msg->seq)!=images.end() && 
+     coordinates.find(msg->seq) != coordinates.end()){
     topics_raw_image = images[msg->seq];
-    topics_raw_image = fit(topics_raw_image,window_w/4, window_h/4);
-    
-    vector<int>&tscales = scales[msg->seq];
-    vector<int>&tcoordinates = coordinates[msg->seq];
-    int dim = tcoordinates.size()/msg->words.size();
+    cv::Mat img = draw_keypoints(msg,topics_raw_image);
 
-    cv::Mat img = images[msg->seq].clone();
-    //randomly show maximum of 500 features
-    vector<unsigned int> showlist;
-    for(size_t i=0;i<msg->words.size();++i)
-      showlist.push_back(i);
-    std::random_shuffle(showlist.begin(), showlist.end()); 
-    for(size_t j=0;j<std::min<size_t>(500ul,msg->words.size()); ++j){
-      size_t i = showlist[j];
-      int z = msg->words[i];
-      cv::circle(img,
-		 cv::Point(tcoordinates[i*dim], tcoordinates[i*dim+1]),
-		 tscales[i]/2,
-		 colors[z%colors.size()],2,CV_AA);
-    }
     topics_image = fit(img,window_w/4, window_h/4);
-  }
-}
+    topics_raw_image = fit(topics_raw_image,window_w/4, window_h/4);
 
+    //Draw the histogram
+    //topics_hist_image = draw_topics_hist(msg->words, window_w/4, window_h/4);
+
+  }
+  else
+    cerr<<"Warning: corresponding image was not seen!! "<< msg->seq<<endl;
+
+}
 //void local_surprise_callback(summarizer::LocalSurprise::ConstPtr  msg){
 //  local_surprise=msg;
 //}
@@ -273,26 +263,6 @@ void topics_callback(const rost_common::WordObservation::ConstPtr&  msg){
      coordinates.find(msg->seq) != coordinates.end()){
     topics_raw_image = images[msg->seq];
     cv::Mat img = draw_keypoints(msg,topics_raw_image);
-
-    /*    cv::Mat img = images[msg->seq].clone();
-    vector<int>&tscales = scales[msg->seq];
-    vector<int>&tcoordinates = coordinates[msg->seq];
-
-    int dim = tcoordinates.size()/msg->words.size();
-
-    //randomly show maximum of 500 features
-    vector<unsigned int> showlist;
-    for(size_t i=0;i<msg->words.size();++i)
-      showlist.push_back(i);
-    std::random_shuffle(showlist.begin(), showlist.end()); 
-    for(size_t j=0;j<std::min<size_t>(500ul,msg->words.size()); ++j){
-      size_t i = showlist[j];
-      int z = msg->words[i];
-      cv::circle(img,
-		 cv::Point(tcoordinates[i*dim], tcoordinates[i*dim+1]),
-		 tscales[i]/2,
-		 colors[z%colors.size()],2,CV_AA);
-		 }*/
 
     topics_image = fit(img,window_w/4, window_h/4);
     topics_raw_image = fit(topics_raw_image,window_w/4, window_h/4);
