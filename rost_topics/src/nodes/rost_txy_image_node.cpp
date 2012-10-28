@@ -4,6 +4,7 @@
 #include <rost_common/RefineTopics.h>
 #include <rost_common/Perplexity.h>
 #include <rost_common/GetModelPerplexity.h>
+#include <std_srvs/Empty.h>
 #include "rost.hpp"
 
 using namespace std;
@@ -47,6 +48,14 @@ bool get_model_perplexity(rost_common::GetModelPerplexity::Request& request, ros
 bool refine_topics(rost_common::RefineTopics::Request& request, rost_common::RefineTopics::Response& response){
   ROS_INFO("Refining %u cells, with tau=%f",request.iterations, k_tau);
   parallel_refine_tau(rost, num_threads, k_tau, request.iterations);
+  return true;
+}
+
+//service callback:
+//refine topics for given number of cells
+bool reshuffle_topics(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response){
+  ROS_INFO("Reshuffling topics");
+  rost->shuffle_topics();
   return true;
 }
 
@@ -157,6 +166,7 @@ int main(int argc, char**argv){
   ros::ServiceServer get_topics_for_time_service = nh->advertiseService("get_topics_for_time", get_topics_for_time);
   ros::ServiceServer refine_service = nh->advertiseService("refine", refine_topics);
   ros::ServiceServer get_model_perplexity_service = nh->advertiseService("get_model_perplexity", get_model_perplexity);
+  ros::ServiceServer reshuffle_topics_service = nh->advertiseService("reshuffle_topics", reshuffle_topics);
 
   pose_t G{{G_time, G_space, G_space}};
   rost = new ROST_t (V, K, k_alpha, k_beta, G);

@@ -314,6 +314,24 @@ struct ROST{
     //cerr<<"U:"<<z_old<<","<<z_new<<endl;
   }
 
+  void shuffle_topics(){
+    for(auto &c : cells){
+      lock_guard<mutex> lock(c->cell_mutex);
+      for(size_t i=0;i<c->Z.size(); ++i){
+	int z_old = c->Z[i];
+	int w = c->W[i];
+	int z_new=uniform_K_distr(engine);
+	c->nZ[z_old]--;
+	c->nZ[z_new]++;
+	nZW[z_old][w]--;
+	nZW[z_new][w]++;
+	weight_Z[z_old]--;
+	weight_Z[z_new]++;
+	c->Z[i]=z_new;
+      }
+    }
+  }
+
   template<typename WordContainer>
   void add_observation(const PoseT& pose, const WordContainer& words){
     auto cell_it = cell_lookup.find(pose);
@@ -423,11 +441,11 @@ struct ROST{
     }
     transform(c.nZ.begin(), c.nZ.end(), nZg.begin(), nZg.begin(), plus<int>());
 
-    int weight_g=0;
+    int weight_c=0;
     double ppx_sum=0;
     if(update_ppx){ 
       c.perplexity=0;
-      weight_g = accumulate(nZg.begin(), nZg.end(),0);
+      weight_c = accumulate(c.nZ.begin(), c.nZ.end(),0);
     }
 
     vector<double> pz(K,0);
@@ -443,7 +461,8 @@ struct ROST{
 	int nkw = nZW[k][w];      
 	int weight_k = weight_Z[k];
 	pz[k] = (nkw+beta)/(weight_k + beta*V) * (nZg[k]+alpha);
-	if(update_ppx) ppx_sum += pz[k]/(weight_g + alpha*K);
+	//	if(update_ppx) ppx_sum += pz[k]/(weight_g + alpha*K);
+	if(update_ppx) ppx_sum += (nkw+beta)/(weight_k + beta*V) * (c.nZ[k]+alpha)/(weight_c + alpha*K);
       } 
       if(update_ppx)c.perplexity+=log(ppx_sum);
       Zc[i]= max_element(pz.begin(), pz.end()) - pz.begin();
