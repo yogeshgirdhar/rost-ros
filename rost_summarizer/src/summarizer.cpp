@@ -76,6 +76,7 @@ void words_callback(rost_common::WordObservation::Ptr  msg){
   int closest_seq;
   tie(surprise,closest_seq)=summary->surprise(observation);
   if(surprise >= summary->threshold){
+    cerr<<"Summarizer Adding : "<<msg->seq<<endl;
     summary->add(observation, msg->seq);
     summary->update_threshold();
     summary_observations[msg->seq]=msg;
@@ -102,9 +103,9 @@ int main(int argc, char**argv){
 
   summary = new Summary<>(S,thresholding);
 
-  ros::Subscriber sub = nh.subscribe("/topics", 10, words_callback);
-  summary_pub = nh.advertise<rost_common::Summary>("/summary", 10);
-  summary_observations_pub = nh.advertise<rost_common::SummaryObservations>("/summary_observations", 10);
+  ros::Subscriber sub = nh.subscribe("/topics", 100, words_callback);
+  summary_pub = nh.advertise<rost_common::Summary>("/summary", 100);
+  summary_observations_pub = nh.advertise<rost_common::SummaryObservations>("/summary_observations", 100);
 
   if(observations_are_topics){
     topics_client =  nh.serviceClient<rost_common::GetTopicsForTime>("/rost/get_topics_for_time", true);

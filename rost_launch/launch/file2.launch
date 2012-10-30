@@ -13,6 +13,61 @@
 </node>
 
 
+<arg name="bow.hue" default="true"/>
+<arg name="bow.intensity" default="false"/>
+<arg name="bow.orb" default="true"/>
+<include file="$(find rost_vision)/launch/visualwords.xml" if="$(arg bow.orb)">
+  <arg name="hue" value="$(arg bow.hue)"/>
+  <arg name="intensity" value="$(arg bow.intensity)"/>
+</include>
+<include file="$(find rost_vision)/launch/visualwords_surf.xml" unless="$(arg bow.orb)">
+  <arg name="hue" value="$(arg bow.hue)"/>
+  <arg name="intensity" value="$(arg bow.intensity)"/>
+</include>
+
+<arg name="topics.enable" default="true"/>
+<arg name="K" default="16"/>
+<arg name="V" value="5500" if="$(arg bow.orb)"/>
+<arg name="V" value="1500" unless="$(arg bow.orb)"/>
+<arg name="alpha" default="0.1"/>
+<arg name="beta" default="0.1"/>
+<arg name="tau" default="2.0"/>
+<arg name="threads" default="4"/>
+<arg name="cell.width" default="160"/>
+<arg name="G.time" default="1"/>
+<arg name="G.space" default="1"/>
+<arg name="topics.polled_refine" default="false"/>
+<node pkg="rost_topics" type="rost_txy_image_node" name="rost" if="$(arg topics.enable)">
+  <param name="K" value="$(arg K)"/>
+  <param name="V" value="$(arg V)"/>
+  <param name="alpha" value="$(arg alpha)"/>
+  <param name="beta" value="$(arg beta)"/>
+  <param name="tau" value="$(arg tau)"/>
+  <param name="num_threads" value="$(arg threads)"/>
+  <param name="cell_width" value="$(arg cell.width)"/>
+  <param name="G_time" value="$(arg G.time)"/>
+  <param name="G_space" value="$(arg G.space)"/>
+  <param name="polled_refine" value="$(arg topics.polled_refine)"/>
+</node>
+
+
+<arg name="sum.enable" default="true"/>
+<arg name="S" default="16"/>
+<arg name="summary.threshold" default="auto"/>
+<node pkg="rost_summarizer" type="summarizer" name="summarizer" if="$(arg sum.enable)">
+  <param name="S" value="$(arg S)"/>
+  <param name="topics" value="true" if="$(arg topics.enable)"/>
+  <param name="threshold" value="$(arg summary.threshold)"/>
+</node>
+
+
+<arg name="bag.enable" default="false"/>
+<arg name="bag.name" default="/tmp/rost.bag"/>
+<arg name="bag.topics" default="words topics summary summary_observations perplexity"/>
+<node pkg="rosbag" type="record" name="record" args="--output-name=$(arg bag.name)  $(arg bag.topics) --bz2" if="$(arg bag.enable)">
+</node>
+
+
 <arg name="file"/>
 <arg name="video.begin" default="0"/>
 <arg name="video.end" default="-1"/>
@@ -32,49 +87,5 @@
 </include>
 
 
-<arg name="bow.hue" default="true"/>
-<arg name="bow.intensity" default="false"/>
-<arg name="bow.orb" default="true"/>
-<arg name="bow.surf" default="false"/>
-<include file="$(find rost_vision)/launch/visualwords.xml">
-  <arg name="hue" value="$(arg bow.hue)"/>
-  <arg name="intensity" value="$(arg bow.intensity)"/>
-  <arg name="orb" value="$(arg bow.orb)"/>
-  <arg name="surf" value="$(arg bow.surf)"/>
-</include>
 
-<arg name="topics.enable" default="true"/>
-<arg name="K" default="16"/>
-<arg name="V" default="5500"/>
-<arg name="alpha" default="0.1"/>
-<arg name="beta" default="0.1"/>
-<arg name="tau" default="2.0"/>
-<arg name="threads" default="4"/>
-<arg name="cell.width" default="160"/>
-<node pkg="rost_topics" type="rost_txy_image_node" name="rost" if="$(arg topics.enable)">
-  <param name="K" value="$(arg K)"/>
-  <param name="V" value="$(arg V)"/>
-  <param name="alpha" value="$(arg alpha)"/>
-  <param name="beta" value="$(arg beta)"/>
-  <param name="tau" value="$(arg tau)"/>
-  <param name="num_threads" value="$(arg threads)"/>
-  <param name="cell_width" value="$(arg cell.width)"/>
-</node>
-
-
-<arg name="sum.enable" default="true"/>
-<arg name="S" default="16"/>
-<arg name="summary.threshold" default="auto"/>
-<node pkg="rost_summarizer" type="summarizer" name="summarizer" if="$(arg sum.enable)">
-  <param name="S" value="$(arg S)"/>
-  <param name="topics" value="true" if="$(arg topics.enable)"/>
-  <param name="threshold" value="$(arg summary.threshold)"/>
-</node>
-
-
-<arg name="bag.enable" default="false"/>
-<arg name="bag.name" default="/tmp/rost.bag"/>
-<arg name="bag.topics" default="image words topics summary summary_observations"/>
-<node pkg="rosbag" type="record" name="record" args="--output-name=$(arg bag.name)  $(arg bag.topics) --bz2" if="$(arg bag.enable)">
-</node>
 </launch>

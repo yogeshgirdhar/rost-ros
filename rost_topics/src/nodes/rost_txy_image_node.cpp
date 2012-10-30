@@ -76,7 +76,7 @@ bool get_topics_for_time(rost_common::GetTopicsForTime::Request& request, rost_c
 
 template<typename W>
 void broadcast_topics(int time, const W& worddata_for_poses){
-  cerr<<"Requesting topics for time: "<<time<<endl;
+  //  cerr<<"Requesting topics for time: "<<time<<endl;
   rost_common::WordObservation::Ptr z(new rost_common::WordObservation);
   rost_common::Perplexity::Ptr msg_ppx(new rost_common::Perplexity);
   z->source="topics";
@@ -104,7 +104,7 @@ void broadcast_topics(int time, const W& worddata_for_poses){
   msg_ppx->perplexity= exp(-sum_log_p_word/n_words);
   topics_pub.publish(z);
   perplexity_pub.publish(msg_ppx);
-  //cerr<<"Publish topics "<<pose<<": "<<z->words.size()<<endl;
+  cerr<<"Publish topics for seq"<<z->seq<<": "<<z->words.size()<<endl;
 }
 
 void words_callback(const rost_common::WordObservation::ConstPtr&  words){

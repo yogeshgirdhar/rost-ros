@@ -180,10 +180,9 @@ public:
     min_it = sum2_end;
     float max_d = 0;
     float d;
-    
     for(it1 = sum1_begin; it1!=sum1_end; ++it1){
       tie(d, it2) = hausdorff(it1, sum2_begin, sum2_end);
-      if(d > max_d){
+      if(d >= max_d){
 	max_it = it1;
 	min_it = it2;
 	max_d = d;
@@ -307,6 +306,7 @@ void Summary<Distance>::trim(){
   summary_t newsum; set<unsigned int> new_uids;
   newsum.insert(summary.lower_bound(i->first), summary.upper_bound(i->first)); //insert all elemets with key i->first
   new_uids.insert(i->first);
+  //cerr<<"SumTrim: "<<i->first<<endl;
   //  newsum[i->first]=summary[i->first];
   summary.erase(i->first);
   new_k--;
@@ -314,6 +314,7 @@ void Summary<Distance>::trim(){
     assert(!summary.empty());
     tie(d,i,i2) = hausdorff(summary.begin(), summary.end(), newsum.begin(), newsum.end());
     newsum.insert(summary.lower_bound(i->first), summary.upper_bound(i->first)); //insert all subsampels with key i-first
+    //cerr<<"SumTrim:   "<<i->first<<endl;
     new_uids.insert(i->first);
     //    newsum[i->first]=i->second;
     summary.erase(i->first);

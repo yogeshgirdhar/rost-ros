@@ -2,10 +2,11 @@
 inner_iter=20000
 basename=$1
 outer_iter=$2
-rep=10
+begin=$3
+end=$4
 
 
-for j in `seq ${rep}`; do
+for j in `seq ${begin} ${end}`; do
     filename="${basename}_${j}.txt"
     rm $filename
     for i in `seq ${outer_iter}`; do

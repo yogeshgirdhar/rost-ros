@@ -127,8 +127,8 @@ void trim(){
     //    cerr<<imgid<<"?:";
     if(summary.find(imgid) == summary.end()){ //if not part of the summary
       images.erase(imgid);
-      scales.erase(imgid);
-      coordinates.erase(imgid);
+      //scales.erase(imgid);
+      //coordinates.erase(imgid);
       //cerr<<"Y";
     }
     //else{cerr<<"N";}
@@ -195,8 +195,7 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg)
 void words_callback(const rost_common::WordObservation::ConstPtr&  msg){
   //cerr<<"Received topic for image:"<<msg->image_seq<<endl;
   if(topics_mode) return;
-  if(images.find(msg->seq)!=images.end() && 
-     coordinates.find(msg->seq) != coordinates.end()){
+  if(images.find(msg->seq)!=images.end()){
     topics_raw_image = images[msg->seq];
     cv::Mat img = draw_keypoints(msg,topics_raw_image);
 
@@ -259,8 +258,7 @@ cv::Mat draw_topics_hist(const vector<int>& topics, int hist_img_w, int hist_img
 
 void topics_callback(const rost_common::WordObservation::ConstPtr&  msg){
   //cerr<<"Received topic for image:"<<msg->image_seq<<endl;
-  if(images.find(msg->seq)!=images.end() && 
-     coordinates.find(msg->seq) != coordinates.end()){
+  if(images.find(msg->seq)!=images.end()){
     topics_raw_image = images[msg->seq];
     cv::Mat img = draw_keypoints(msg,topics_raw_image);
 

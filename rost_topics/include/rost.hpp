@@ -553,7 +553,7 @@ void dowork_parallel_refine_online(R* rost, double tau, int thread_id, Stop stop
     double p_refine_current = generate_canonical<double, 10>(rost->engine);
     if(rost->C > 0){
       size_t cid;
-      if(p_refine_current < 0.9 || rost->C < now_size){
+      if(p_refine_current < 0.9 || rost->C < now_size || tau==1.0){
 	cid = floor(r_beta * static_cast<double>(rost->C));
 	//cerr<<"global: "<<cid<<endl;
       }
