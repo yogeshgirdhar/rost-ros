@@ -35,4 +35,4 @@ threads:=4       number of threads to spawn for topic refinement.
 cell.width:=160  split the input image into windows of size 160x160
 
 
-There are many more options, but you probably don't care about them. Let me know if you have any questions
+There are many more options. To see them open the launch file.
