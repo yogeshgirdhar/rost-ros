@@ -5,18 +5,18 @@ using namespace std;
 
 
 int main(int argc, char*argv[]){
-  if(argc!=5){
+  if(argc!=4){
     cerr<<"Generate random words from topics"<<endl
-	<<"  generate_random_words <topics.txt> <K> <V> <alpha>"<<endl;
+	<<"  generate_random_words <K> <V> <alpha>"<<endl;
     return 0;
   }
   int K=2, V=10, seed;
   double alpha;
 
-  word_reader reader(argv[1]);
-  K = atoi(argv[2]);
-  V = atoi(argv[3]);
-  alpha = atof(argv[4]);
+  word_reader reader("-",0,',');
+  K = atoi(argv[1]);
+  V = atoi(argv[2]);
+  alpha = atof(argv[3]);
 
   //  seed = atoi(argv[4]);
   random_device rd;
@@ -39,8 +39,11 @@ int main(int argc, char*argv[]){
   }
   vector<int> topics = reader.get();
   while(!topics.empty()){
-    for(auto k: topics){
-      cout<<vocabulary[topic_word_dist[k](engine)]<<" ";
+    int k=topics[0];
+    cout<<vocabulary[topic_word_dist[k](engine)];
+    for(size_t i=1;i<topics.size(); ++i){
+      k=topics[i];
+      cout<<","<<vocabulary[topic_word_dist[k](engine)];
     }
     cout<<endl;
     topics = reader.get();

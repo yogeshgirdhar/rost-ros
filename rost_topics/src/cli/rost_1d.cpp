@@ -21,7 +21,7 @@ int main(int argc, char*argv[]){
 
 
   
-  word_reader in(args["in.words"].as<string>(), args["in.cellsize"].as<int>()); 
+  word_reader in(args["in.words"].as<string>(), args["in.cellsize"].as<int>(),args["in.words.delim"].as<string>()[0]); 
 
 
   if(!args.count("online")){
