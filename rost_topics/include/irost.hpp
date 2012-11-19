@@ -166,6 +166,7 @@ struct ROST{
   PoseHashT pose_hash;
   unordered_map<PoseT, size_t , PoseHashT> cell_lookup;
   vector<shared_ptr<Cell>> cells;
+  vector<PoseT> cell_pose;
   mutex cells_mutex;     //lock for cells, since cells can grow in size
   size_t V, K, C;        //vocab size, topic size, #cells, number of avtive topics
   atomic<int> K_active;
