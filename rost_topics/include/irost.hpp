@@ -116,6 +116,7 @@ struct Cell{
   vector<int> nZ; //distribution/count of Z
   mutex cell_mutex;
   vector<mutex> Z_mutex;
+  double perplexity;
   Cell(size_t id_, size_t vocabulary_size, size_t topics_size):
     id(id_),
     //nW(vocabulary_size, 0),
@@ -227,6 +228,21 @@ struct ROST{
       return vector<int>();
   }
 
+  //compute maximum likelihood estimate for topics in the cell for the given pose
+  tuple<vector<int>,double> get_topics_and_ppx_for_pose(const PoseT& pose){
+    //lock_guard<mutex> lock(cells_mutex);
+    vector<int> topics;
+    double ppx =0;
+    auto cell_it = cell_lookup.find(pose);
+    if(cell_it != cell_lookup.end()){ 
+      auto c = get_cell(cell_it->second);
+      lock_guard<mutex> lock(c->cell_mutex);
+      topics = estimate(*c,true);
+      ppx = c->perplexity;
+    }
+    return make_tuple(topics,ppx);
+  }
+
   shared_ptr<Cell> get_cell(size_t cid){
     lock_guard<mutex> lock(cells_mutex);
     return cells[cid];
@@ -271,6 +287,24 @@ struct ROST{
     //cerr<<"U:"<<z_old<<","<<z_new<<endl;
   }
 
+  void shuffle_topics(){
+    for(auto &c : cells){
+      lock_guard<mutex> lock(c->cell_mutex);
+      for(size_t i=0;i<c->Z.size(); ++i){
+	int z_old = c->Z[i];
+	int w = c->W[i];
+	int z_new=uniform_K_distr(engine);
+	c->nZ[z_old]--;
+	c->nZ[z_new]++;
+	nZW[z_old][w]--;
+	nZW[z_new][w]++;
+	weight_Z[z_old]--;
+	weight_Z[z_new]++;
+	c->Z[i]=z_new;
+      }
+    }
+  }
+
   template<typename WordContainer>
   void add_observation(const PoseT& pose, const WordContainer& words){
     auto cell_it = cell_lookup.find(pose);
@@ -280,6 +314,7 @@ struct ROST{
       c = make_shared<Cell>(C,V,K);
       cells_mutex.lock();
       cells.push_back(c);
+      cell_pose.push_back(pose);
       cells_mutex.unlock();
 
       c->cell_mutex.lock();
@@ -307,8 +342,7 @@ struct ROST{
     for(auto w : words){
       c->W.push_back(w);
       //generate random topic label
-      int z = uniform_K_distr(engine) % K_active;
-      //assert(z < K && z >=0);
+      int z = uniform_K_distr(engine);
       c->Z.push_back(z);
       //update the histograms
       c->nZ[z]++; 
@@ -373,7 +407,7 @@ struct ROST{
   }
 
   //estimate maximum likelihood topics for the cell
-  vector<int> estimate(Cell& c){
+  vector<int> estimate(Cell& c, bool update_ppx=false){
     if(c.id >=C)
       return vector<int>();
 
@@ -388,6 +422,13 @@ struct ROST{
     }
     transform(c.nZ.begin(), c.nZ.end(), nZg.begin(), nZg.begin(), plus<int>());
 
+    int weight_c=0;
+    double ppx_sum=0;
+    if(update_ppx){ 
+      c.perplexity=0;
+      weight_c = accumulate(c.nZ.begin(), c.nZ.end(),0);
+    }
+
     vector<double> pz(K,0);
     vector<int> Zc(c.W.size());
 
@@ -395,14 +436,20 @@ struct ROST{
       int w = c.W[i];
       int z = c.Z[i];
       nZg[z]--;
+      if(update_ppx) ppx_sum=0;
 
       for(size_t k=0;k<K; ++k){
 	int nkw = nZW[k][w];      
 	int weight_k = weight_Z[k];
 	pz[k] = (nkw+beta)/(weight_k + beta*V) * (nZg[k]+alpha);
+	//	if(update_ppx) ppx_sum += pz[k]/(weight_g + alpha*K);
+	if(update_ppx) ppx_sum += (nkw+beta)/(weight_k + beta*V) * (c.nZ[k]+alpha)/(weight_c + alpha*K);
       } 
+      if(update_ppx)c.perplexity+=log(ppx_sum);
       Zc[i]= max_element(pz.begin(), pz.end()) - pz.begin();
-    } 
+    }
+    //if(update_ppx) c.perplexity=exp(-c.perplexity/c.W.size());
+
     return Zc;
   }
 
@@ -446,24 +493,53 @@ void parallel_refine(R* rost, int nt){
   }
 }
 
+// does #iter number of cell refinements
+// cell_ids to be refined are distributed by Beta(tau,1)
+// tau > 1 => higher cell_ids are refined more often
+// nt = number of threads to use
+template<typename R>
+void parallel_refine_tau(R* rost, int nt, double tau, size_t iter){
+  auto todo = make_shared<vector<size_t>>(iter);
+  gamma_distribution<double> gamma1(tau,1.0);
+  gamma_distribution<double> gamma2(1.0,1.0);
+  for(size_t i=0;i<iter; ++i){
+    double r_gamma1 = gamma1(rost->engine), r_gamma2 = gamma2(rost->engine);
+    double r_beta = r_gamma1/(r_gamma1+r_gamma2);
+    size_t cid = floor(r_beta * static_cast<double>(rost->C));
+    cid = min<size_t>(cid, rost->C-1);
+    (*todo)[i]=cid;
+  }
+  auto m = make_shared<mutex>();  
+  vector<shared_ptr<thread>> threads;
+  for(int i=0;i<nt;++i){
+    //threads.emplace_back(dowork_parallel_refine,rost,todo ,m);
+    threads.push_back(make_shared<thread>(dowork_parallel_refine<R>,rost,todo ,m, i));
+  }
+  
+  for(auto&t: threads){
+    t->join();
+  }
+}
+
 
 template<typename R, typename Stop>
 void dowork_parallel_refine_online(R* rost, double tau, int thread_id, Stop stop){
   gamma_distribution<double> gamma1(tau,1.0);
   gamma_distribution<double> gamma2(1.0,1.0);
-  
+  size_t now_size = 200;
+ 
   while(! stop->load() ){
     double r_gamma1 = gamma1(rost->engine), r_gamma2 = gamma2(rost->engine);
     double r_beta = r_gamma1/(r_gamma1+r_gamma2);
     double p_refine_current = generate_canonical<double, 10>(rost->engine);
     if(rost->C > 0){
       size_t cid;
-      if(p_refine_current < 0.9 || rost->C < 10){
+      if(p_refine_current < 0.9 || rost->C < now_size || tau==1.0){
 	cid = floor(r_beta * static_cast<double>(rost->C));
 	//cerr<<"global: "<<cid<<endl;
       }
       else{
-	cid = rost->C -10 + floor(r_beta * 10);
+	cid = max<int>(0,rost->C - now_size + floor(r_beta * now_size));
 	//cerr<<"local: "<<cid<<"/"<<rost->C<<endl;
       }
       if(cid >= rost->C) 
@@ -496,8 +572,10 @@ struct word_reader{
   istream* stream;
   string line;  
   size_t doc_size;
-  word_reader(string filename, size_t doc_size_=0):
-    doc_size(doc_size_)
+  char delim;
+  word_reader(string filename, size_t doc_size_=0, char delim_=' '):
+    doc_size(doc_size_),
+    delim(delim_)
   {
     if(filename=="-" || filename == "/dev/stdin"){
       stream  = &std::cin;
@@ -506,12 +584,27 @@ struct word_reader{
       stream = new ifstream(filename.c_str());
     }
   }  
-  vector<int> get(){
+  /*  vector<int> get(){
     vector<int> words;    
     getline(*stream,line);
     if(*stream){
       stringstream ss(line);
       copy(istream_iterator<int>(ss), istream_iterator<int>(), back_inserter(words));
+    }
+    return words;
+    }*/
+  vector<int> get(){
+    vector<int> words;
+    vector<string> words_str;
+    string word;
+    getline(*stream,line);
+    if(*stream){
+      //cerr<<"Read line: "<<line<<endl;
+      stringstream ss(line);      
+      while(std::getline(ss,word,delim)){
+	words_str.push_back(word);
+      }
+      transform(words_str.begin(), words_str.end(), back_inserter(words), [](const string& s){return atoi(s.c_str());});
     }
     return words;
   }

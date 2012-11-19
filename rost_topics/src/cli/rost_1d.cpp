@@ -2,6 +2,14 @@
 #include "program_options.hpp"
 #include <iostream>
 
+void out(ostream& out_topics, vector<int>& topics){
+  if(topics.empty()) return;
+  out_topics<<topics[0];
+  for(size_t i=1;i<topics.size(); ++i){
+    out_topics<<","<<topics[i];
+  }
+  out_topics<<endl;
+}
 
 int main(int argc, char*argv[]){
 
@@ -24,6 +32,12 @@ int main(int argc, char*argv[]){
   word_reader in(args["in.words"].as<string>(), args["in.cellsize"].as<int>(),args["in.words.delim"].as<string>()[0]); 
 
 
+  cerr<<"alpha="<< args["alpha"].as<double>()<<endl
+      <<"beta="<< args["beta"].as<double>()<<endl
+      <<"g="<< args["neighborhood.size"].as<int>()<<endl
+      <<"K="<<  args["ntopics"].as<int>()<<endl
+      <<"V="<< args["nwords"].as<int>()<<endl;
+
   if(!args.count("online")){
     cerr<<"Processing words in batch mode."<<endl;        
     int t=0;
@@ -42,9 +56,8 @@ int main(int argc, char*argv[]){
     ofstream out_topics(args["out.topics"].as<string>());
     for(int d = 0; d< rost.C; ++d){
       vector<int> topics = rost.get_topics_for_pose(d);
-      copy(topics.begin(), topics.end(), ostream_iterator<int>(out_topics," "));
-      //copy(rost.cells[d]->Z.begin(), rost.cells[d]->Z.end(), ostream_iterator<int>(out_topics," "));
-      out_topics<<endl;
+      //copy(topics.begin(), topics.end(), ostream_iterator<int>(out_topics,","));
+      out(out_topics,topics);
     }
   }
   else{
@@ -62,14 +75,13 @@ int main(int argc, char*argv[]){
       //      cerr<<"Read cell: "<<t<<endl;
       if(t>0){
 	vector<int> topics = rost.get_topics_for_pose(t-1);
-	copy(topics.begin(), topics.end(), ostream_iterator<int>(out_topics," "));
-	out_topics<<endl;
+	out(out_topics,topics);
       }
       rost.add_observation(t++,words);
       words = in.get();      
     }
     vector<int> topics = rost.get_topics_for_pose(t-1);
-    copy(topics.begin(), topics.end(), ostream_iterator<int>(out_topics," "));
+    copy(topics.begin(), topics.end(), ostream_iterator<int>(out_topics,","));
     //copy(rost.cells[t-1]->Z.begin(), rost.cells[t-1]->Z.end(), ostream_iterator<int>(out_topics," "));
     out_topics<<endl;
    

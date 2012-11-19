@@ -5,19 +5,26 @@ using namespace std;
 
 
 int main(int argc, char*argv[]){
-  if(argc!=4){
+  if(argc <4){
     cerr<<"Generate random words from topics"<<endl
-	<<"  generate_random_words <K> <V> <alpha>"<<endl;
+	<<"  generate_random_words <K> <V> <alpha> [filename]"<<endl;
     return 0;
   }
   int K=2, V=10, seed;
   double alpha;
 
-  word_reader reader("-",0,',');
+
   K = atoi(argv[1]);
   V = atoi(argv[2]);
   alpha = atof(argv[3]);
+  string filename="-";
+  if (argc >4){
+    filename = argv[4];
+  }
 
+
+  word_reader reader(filename,0,',');
+  cerr<<"K="<<K<<"  V="<<V<<"  alpha="<<alpha<<endl;
   //  seed = atoi(argv[4]);
   random_device rd;
   mt19937 engine(rd());
@@ -39,11 +46,13 @@ int main(int argc, char*argv[]){
   }
   vector<int> topics = reader.get();
   while(!topics.empty()){
-    int k=topics[0];
-    cout<<vocabulary[topic_word_dist[k](engine)];
+    int k = topics[0];
+    int v = vocabulary[topic_word_dist[k](engine)]; 
+    cout<<v;
     for(size_t i=1;i<topics.size(); ++i){
-      k=topics[i];
-      cout<<","<<vocabulary[topic_word_dist[k](engine)];
+      k = topics[i];
+      v = vocabulary[topic_word_dist[k](engine)];
+      cout<<","<<v;
     }
     cout<<endl;
     topics = reader.get();
