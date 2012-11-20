@@ -29,7 +29,6 @@ ros::Publisher topics_pub, perplexity_pub;
 bool get_model_perplexity(rost_common::GetModelPerplexity::Request& request, rost_common::GetModelPerplexity::Response& response){
   ROS_INFO("Computing model perplexity");
   for(auto& time_poses : cellposes_for_time){
-    int seq = time_poses.first;
     double seq_ppx=0;
     int n_words=0;
     for(auto& pose : time_poses.second){
@@ -167,6 +166,8 @@ int main(int argc, char**argv){
   ros::ServiceServer refine_service = nh->advertiseService("refine", refine_topics);
   ros::ServiceServer get_model_perplexity_service = nh->advertiseService("get_model_perplexity", get_model_perplexity);
   ros::ServiceServer reshuffle_topics_service = nh->advertiseService("reshuffle_topics", reshuffle_topics);
+  //ros::ServiceServer get_topic_model_service = nh->advertiseService("get_topic_model", get_topic_model);
+  //ros::ServiceServer get_topic_model_service = nh->advertiseService("get_topic_model", get_topic_model);
 
   pose_t G{{G_time, G_space, G_space}};
   rost = new ROST_t (V, K, k_alpha, k_beta, G);
