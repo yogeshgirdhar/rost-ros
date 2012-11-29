@@ -2,11 +2,12 @@
 #include <rost_common/WordObservation.h>
 #include <rost_common/TopicWeights.h>
 #include <rost_common/LocalSurprise.h>
+#include <rost_common/LocalSurprise1D.h>
 #include <vector>
 using namespace std;
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
-ros::Publisher local_surprise_pub;
+ros::Publisher local_surprise_pub, local_surprise1d_pub;
 
 vector<int> topic_weights;
 vector<float> surprise_grid;
@@ -46,11 +47,24 @@ void topics_callback(rost_common::WordObservation::Ptr  msg){
   }
 
   rost_common::LocalSurprise::Ptr local_surprise_msg(new rost_common::LocalSurprise);
+
   local_surprise_msg->seq = msg->seq;
   local_surprise_msg->centers = surprise_grid_centers;
   local_surprise_msg->radii = surprise_grid_radii;
   local_surprise_msg->surprise = surprise_grid;
   local_surprise_pub.publish(local_surprise_msg);
+
+  rost_common::LocalSurprise1D::Ptr local_surprise1d_msg(new rost_common::LocalSurprise1D);
+  local_surprise1d_msg->seq = msg->seq;
+  local_surprise1d_msg->surprise.resize(s_width,0);
+  size_t iter=0;
+  //add up the vertical axis surprise to get x axis surprise
+  for(int j=0; j<s_height; ++j){
+    for(int i=0;i<s_width; ++i){
+      local_surprise1d_msg->surprise[i]+=surprise_grid[iter++];
+    }
+  }
+  local_surprise1d_pub.publish(local_surprise1d_msg);
 }
 
 
@@ -77,6 +91,7 @@ int main(int argc, char**argv){
   ros::Subscriber sub_topics = nh.subscribe("/topics", 1, topics_callback);
   ros::Subscriber sub_topics_weights = nh.subscribe("/topic_weight", 1, topic_weights_callback);
   local_surprise_pub = nh.advertise<rost_common::LocalSurprise>("/local_surprise", 1);
+  local_surprise1d_pub = nh.advertise<rost_common::LocalSurprise1D>("/local_surprise_yaw", 1);
   ros::spin();
   return 0;
 }
