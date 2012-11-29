@@ -27,18 +27,23 @@ void words_callback(const rost_common::WordObservation::ConstPtr&  z){
   cv_ptr = cv_bridge::toCvCopy(img_msg, enc::BGR8);
   cv::Mat out_img = draw_keypoints(z, cv_ptr->image);
   cv::imshow(z->source, out_img);
-  cv::waitKey(1);  
+  cv::waitKey(5);  
 }
 
 void local_surprise_callback(const rost_common::LocalSurprise::ConstPtr&  msg){
   sensor_msgs::ImageConstPtr img_msg = image_cache[msg->seq];
   if(!img_msg) return;
   cv_bridge::CvImagePtr cv_ptr;
-  cv_ptr = cv_bridge::toCvCopy(img_msg, enc::BGR8);
+  try{
+    cv_ptr = cv_bridge::toCvCopy(img_msg, enc::BGR8);
+  }
+  catch (cv_bridge::Exception& e){
+    ROS_ERROR("cv_bridge exception: %s", e.what());
+  }
   cv::Mat img = cv_ptr->image;
   img = draw_local_surprise(msg,img);
   cv::imshow("Look!", img);
-  cv::waitKey(1);  
+  cv::waitKey(5);  
 }
 
 
@@ -47,11 +52,14 @@ int main(int argc, char**argv){
   ros::NodeHandle *nh = new ros::NodeHandle("~");
 
   bool show_topics, show_local_surprise;
+  string image_topic_name;
   nh->param<bool>("topics", show_topics, true);
   nh->param<bool>("local_surprise", show_local_surprise, true);
+  nh->param<string>("image", image_topic_name, "/image");
 
+  ROS_INFO("reading images from: %s", image_topic_name.c_str());
   image_transport::ImageTransport it(*nh);
-  image_transport::Subscriber image_sub = it.subscribe("/image", 1, image_callback);
+  image_transport::Subscriber image_sub = it.subscribe(image_topic_name, 1, image_callback);
   ros::Subscriber word_sub = nh->subscribe("/topics", 1, words_callback);
   ros::Subscriber local_surprise_sub = nh->subscribe("/local_surprise", 1, local_surprise_callback);
 
