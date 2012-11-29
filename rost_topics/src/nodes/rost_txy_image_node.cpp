@@ -4,6 +4,8 @@
 #include <rost_common/RefineTopics.h>
 #include <rost_common/Perplexity.h>
 #include <rost_common/GetModelPerplexity.h>
+#include <rost_common/GetTopicModel.h>
+#include <rost_common/TopicWeights.h>
 #include <std_srvs/Empty.h>
 #include "rost.hpp"
 
@@ -21,7 +23,7 @@ map<pose_t, vector<int>> worddata_for_pose;  //stores [pose]-> {x_i,y_i,scale_i,
 int K, V, cell_width; //number of topic types, number of word types
 double k_alpha, k_beta, k_gamma, k_tau;
 int G_time, G_space, num_threads;
-ros::Publisher topics_pub, perplexity_pub; 
+ros::Publisher topics_pub, perplexity_pub, topic_weights_pub; 
 
 
 //service callback:
@@ -58,6 +60,9 @@ bool reshuffle_topics(std_srvs::Empty::Request& request, std_srvs::Empty::Respon
   return true;
 }
 
+
+//service callback:
+//returns max likelihood topic label estimates for given pose, along with its perplexity
 bool get_topics_for_time(rost_common::GetTopicsForTime::Request& request, rost_common::GetTopicsForTime::Response& response){
   
   set<pose_t>& poses = cellposes_for_time[request.seq];
@@ -73,11 +78,45 @@ bool get_topics_for_time(rost_common::GetTopicsForTime::Request& request, rost_c
   return true;
 }
 
+
+//service callback:
+//returns the current topic model, a flattened KxV matrix
+bool get_topic_model(rost_common::GetTopicModel::Request& request, rost_common::GetTopicModel::Response& response){
+  response.topic_model.resize(K*V);
+  response.K=K;
+  response.V=V;
+  auto topic_model = rost->get_topic_model(); //returns a [K][V] matrix
+  assert(topic_model.size()==static_cast<size_t>(K));
+  assert(topic_model[0].size()==static_cast<size_t>(V));
+  auto it = response.topic_model.begin();
+  for(auto& topic : topic_model){
+    it = copy(topic.begin(), topic.end(), it);
+  }
+  return true;
+}
+
+//service callback:
+//returns the current topic model, a flattened KxV matrix
+/*bool set_topic_model(rost_common::GetTopicModel::Request& request, rost_common::GetTopicModel::Response& response){
+  response.topic_model.resize(K*V);
+  response.topic_model.K=K;
+  response.topic_model.V=V;
+  auto topic_model = rost->get_topic_model(); //returns a [K][V] matrix
+  assert(topic_model.size()==static_cast<size_t>(K));
+  assert(topic_model[0].size()==static_cast<size_t>(V));
+  auto it = response.topic_model.begin();
+  for(auto& topic : topic_model){
+    it = copy(topic.begin(), topic.end(), it);
+  }
+  return true;
+}
+*/
 template<typename W>
 void broadcast_topics(int time, const W& worddata_for_poses){
   //  cerr<<"Requesting topics for time: "<<time<<endl;
   rost_common::WordObservation::Ptr z(new rost_common::WordObservation);
   rost_common::Perplexity::Ptr msg_ppx(new rost_common::Perplexity);
+  rost_common::TopicWeights::Ptr msg_topic_weights(new rost_common::TopicWeights);
   z->source="topics";
   z->vocabulary_begin = 0;
   z->vocabulary_size  = K;  
@@ -85,6 +124,9 @@ void broadcast_topics(int time, const W& worddata_for_poses){
   z->observation_pose.push_back(time);
   msg_ppx->perplexity=0;
   msg_ppx->seq = time;
+  msg_topic_weights->seq=time;
+  msg_topic_weights->weight=rost->get_topic_weights();
+
   int n_words=0; double sum_log_p_word=0;
   for(auto& pose_data: worddata_for_pose){
     vector<int> topics; double ppx;
@@ -103,6 +145,7 @@ void broadcast_topics(int time, const W& worddata_for_poses){
   msg_ppx->perplexity= exp(-sum_log_p_word/n_words);
   topics_pub.publish(z);
   perplexity_pub.publish(msg_ppx);
+  topic_weights_pub.publish(msg_topic_weights);
   cerr<<"Publish topics for seq"<<z->seq<<": "<<z->words.size()<<endl;
 }
 
@@ -161,12 +204,13 @@ int main(int argc, char**argv){
 
   topics_pub = nh->advertise<rost_common::WordObservation>("/topics", 1);
   perplexity_pub = nh->advertise<rost_common::Perplexity>("/perplexity", 1);
+  topic_weights_pub = nh->advertise<rost_common::TopicWeights>("/topic_weight", 1);
   ros::Subscriber sub = nh->subscribe("/words", 100, words_callback);
   ros::ServiceServer get_topics_for_time_service = nh->advertiseService("get_topics_for_time", get_topics_for_time);
   ros::ServiceServer refine_service = nh->advertiseService("refine", refine_topics);
   ros::ServiceServer get_model_perplexity_service = nh->advertiseService("get_model_perplexity", get_model_perplexity);
   ros::ServiceServer reshuffle_topics_service = nh->advertiseService("reshuffle_topics", reshuffle_topics);
-  //ros::ServiceServer get_topic_model_service = nh->advertiseService("get_topic_model", get_topic_model);
+  ros::ServiceServer get_topic_model_service = nh->advertiseService("get_topic_model", get_topic_model);
   //ros::ServiceServer get_topic_model_service = nh->advertiseService("get_topic_model", get_topic_model);
 
   pose_t G{{G_time, G_space, G_space}};

@@ -1,11 +1,13 @@
 #include <ros/ros.h>
 #include <rost_common/WordObservation.h>
+#include <rost_common/LocalSurprise.h>
 #include <image_transport/image_transport.h>
 #include <opencv/cv.h>
 #include <opencv/highgui.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
 #include "draw_keypoints.hpp"
+#include "draw_local_surprise.hpp"
 using namespace std;
 namespace enc = sensor_msgs::image_encodings;
 map<unsigned, sensor_msgs::ImageConstPtr> image_cache;
@@ -28,14 +30,35 @@ void words_callback(const rost_common::WordObservation::ConstPtr&  z){
   cv::waitKey(1);  
 }
 
+void local_surprise_callback(const rost_common::LocalSurprise::ConstPtr&  msg){
+  sensor_msgs::ImageConstPtr img_msg = image_cache[msg->seq];
+  if(!img_msg) return;
+  cv_bridge::CvImagePtr cv_ptr;
+  cv_ptr = cv_bridge::toCvCopy(img_msg, enc::BGR8);
+  cv::Mat img = cv_ptr->image;
+  img = draw_local_surprise(msg,img);
+  cv::imshow("Look!", img);
+  cv::waitKey(1);  
+}
+
 
 int main(int argc, char**argv){
   ros::init(argc, argv, "viewer");
   ros::NodeHandle *nh = new ros::NodeHandle("~");
 
+  bool show_topics, show_local_surprise;
+  nh->param<bool>("topics", show_topics, true);
+  nh->param<bool>("local_surprise", show_local_surprise, true);
+
   image_transport::ImageTransport it(*nh);
   image_transport::Subscriber image_sub = it.subscribe("/image", 1, image_callback);
   ros::Subscriber word_sub = nh->subscribe("/topics", 1, words_callback);
+  ros::Subscriber local_surprise_sub = nh->subscribe("/local_surprise", 1, local_surprise_callback);
+
+  if(show_topics)
+    word_sub = nh->subscribe("/topics", 1, words_callback);
+  if(show_local_surprise)
+    local_surprise_sub = nh->subscribe("/local_surprise", 1, local_surprise_callback);
 
   ros::spin();
 

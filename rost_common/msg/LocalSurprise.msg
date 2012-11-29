@@ -1,4 +1,4 @@
-uint32 image_seq
-float32[] centers
-float32[] radii
+uint32 seq
+int32[] centers
+int32[] radii
 float32[] surprise

@@ -13,6 +13,21 @@
 </node>
 
 
+<arg name="curosity.enable" default="true"/>
+<arg name="img.width" default="640"/>
+<arg name="img.height" default="480"/>
+<arg name="curosity.cellsize" default="64"/>
+<node pkg="rost_curosity" type="curosity" name="curosity" if="$(arg curosity.enable)">
+  <param name="img_height" value="$(arg img.height)"/>
+  <param name="img_width" value="$(arg img.width)"/>
+  <param name="cell_size" value="$(arg curosity.cellsize)"/>
+</node>
+
+<arg name="curosity.vis.enable" default="true"/>
+<node pkg="rost_visualize" type="visualwords" name="vis_curosity" if="$(arg curosity.vis.enable)">
+  <param name="topics" value="false"/>	
+  <param name="local_surprise" value="true"/>	
+</node>
 
 
 <arg name="bow.hue" default="true"/>

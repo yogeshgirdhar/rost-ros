@@ -241,6 +241,15 @@ struct ROST{
   {
   }
 
+  decltype(weight_Z) get_topic_weights(){
+    return weight_Z;
+  }
+
+  //returns the KxV topic-word distribution matrix
+  decltype(nZW) get_topic_model(){
+    return nZW;
+  }
+
   //compute maximum likelihood estimate for topics in the cell for the given pose
   vector<int> get_topics_for_pose(const PoseT& pose){
     //lock_guard<mutex> lock(cells_mutex);
