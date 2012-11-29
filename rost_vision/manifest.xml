@@ -1,0 +1,19 @@
+<package>
+  <description brief="rost_vision">
+
+     rost_vision
+
+  </description>
+  <author>Yogesh Alok Girdhar</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/rost_vision</url>
+  <!--depend package="opencv2"/-->
+  <depend package="roscpp"/>
+  <depend package="cv_bridge"/>
+  <depend package="image_transport"/>
+  <depend package="std_msgs"/>
+  <depend package="rost_common"/>
+</package>
+
+

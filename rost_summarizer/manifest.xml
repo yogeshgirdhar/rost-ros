@@ -1,0 +1,17 @@
+<package>
+  <description brief="rost_summarizer">
+
+     rost_summarizer
+
+  </description>
+  <author>Yogesh Alok Girdhar</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/rost_summarizer</url>
+  <depend package="roscpp"/>
+  <depend package="rost_common"/>
+  <depend package="rost_topics"/>
+
+</package>
+
+

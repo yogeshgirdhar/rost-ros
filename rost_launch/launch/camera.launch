@@ -1,0 +1,94 @@
+<launch>
+
+<arg name="vis.enable" default="true"/>
+<arg name="vis.width" default="1024"/>
+<arg name="vis.height" default="768"/>
+<arg name="vout" default=""/>
+<arg name="vis.blackbg" default="false"/>
+<node pkg="rost_visualize" type="summary" name="summary_viewer" if="$(arg vis.enable)">
+  <param name="vout" value="$(arg vout)"/> 
+  <param name="width" value="$(arg vis.width)"/>
+  <param name="height" value="$(arg vis.height)"/>
+  <param name="black" value="$(arg vis.blackbg)"/>	
+</node>
+
+
+<arg name="curosity.enable" default="true"/>
+<arg name="img.width" default="640"/>
+<arg name="img.height" default="480"/>
+<arg name="curosity.cellsize" default="64"/>
+<node pkg="rost_curosity" type="curosity" name="curosity" if="$(arg curosity.enable)">
+  <param name="img_height" value="$(arg img.height)"/>
+  <param name="img_width" value="$(arg img.width)"/>
+  <param name="cell_size" value="$(arg curosity.cellsize)"/>
+</node>
+
+<arg name="curosity.vis.enable" default="true"/>
+<node pkg="rost_visualize" type="visualwords" name="vis_curosity" if="$(arg curosity.vis.enable)">
+  <param name="topics" value="false"/>	
+  <param name="local_surprise" value="true"/>	
+</node>
+
+
+<arg name="bow.hue" default="true"/>
+<arg name="bow.intensity" default="false"/>
+<arg name="bow.orb" default="true"/>
+<include file="$(find rost_vision)/launch/visualwords.xml" if="$(arg bow.orb)">
+  <arg name="hue" value="$(arg bow.hue)"/>
+  <arg name="intensity" value="$(arg bow.intensity)"/>
+</include>
+<include file="$(find rost_vision)/launch/visualwords_surf.xml" unless="$(arg bow.orb)">
+  <arg name="hue" value="$(arg bow.hue)"/>
+  <arg name="intensity" value="$(arg bow.intensity)"/>
+</include>
+
+<arg name="topics.enable" default="true"/>
+<arg name="K" default="16"/>
+<arg name="V" value="5500" if="$(arg bow.orb)"/>
+<arg name="V" value="1500" unless="$(arg bow.orb)"/>
+<arg name="alpha" default="0.1"/>
+<arg name="beta" default="0.1"/>
+<arg name="tau" default="2.0"/>
+<arg name="threads" default="4"/>
+<arg name="cell.width" default="160"/>
+<arg name="G.time" default="1"/>
+<arg name="G.space" default="1"/>
+<arg name="topics.polled_refine" default="false"/>
+<node pkg="rost_topics" type="rost_txy_image_node" name="rost" if="$(arg topics.enable)">
+  <param name="K" value="$(arg K)"/>
+  <param name="V" value="$(arg V)"/>
+  <param name="alpha" value="$(arg alpha)"/>
+  <param name="beta" value="$(arg beta)"/>
+  <param name="tau" value="$(arg tau)"/>
+  <param name="num_threads" value="$(arg threads)"/>
+  <param name="cell_width" value="$(arg cell.width)"/>
+  <param name="G_time" value="$(arg G.time)"/>
+  <param name="G_space" value="$(arg G.space)"/>
+  <param name="polled_refine" value="$(arg topics.polled_refine)"/>
+</node>
+
+
+<arg name="sum.enable" default="true"/>
+<arg name="S" default="16"/>
+<arg name="summary.threshold" default="auto"/>
+<node pkg="rost_summarizer" type="summarizer" name="summarizer" if="$(arg sum.enable)">
+  <param name="S" value="$(arg S)"/>
+  <param name="topics" value="true" if="$(arg topics.enable)"/>
+  <param name="threshold" value="$(arg summary.threshold)"/>
+</node>
+
+
+<arg name="bag.enable" default="false"/>
+<arg name="bag.name" default="/tmp/rost.bag"/>
+<arg name="bag.topics" default="words topics summary summary_observations perplexity"/>
+<node pkg="rosbag" type="record" name="record" args="--output-name=$(arg bag.name)  $(arg bag.topics) --bz2" if="$(arg bag.enable)">
+</node>
+
+<arg name="scale" default="1.0"/>
+<arg name="rate" default="5"/>
+<include file="$(find cv_image_source)/launch/camera.launch">
+	 <arg name="scale" value="$(arg scale)"/>
+	 <arg name="rate" value="$(arg rate)"/>
+</include>
+
+</launch>
