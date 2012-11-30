@@ -28,7 +28,7 @@ K:=16            number of topics
 S:=16            summary size
 vout:=<out.avi>  record the visualization video. output is MJPEG avi file.
 rate:=5          process video at 5 fps
-subsample:=2     temporally subsample the video (only applicable when using file.launch)
+video.subsample:=2     temporally subsample the video (only applicable when using file.launch)
 loop:=false      loop the video (only with file.launch)
 scale:=1.0       scale the input video. To process the video at half the linear size, set scale:=0.5
 threads:=4       number of threads to spawn for topic refinement. 

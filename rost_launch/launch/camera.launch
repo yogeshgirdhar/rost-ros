@@ -84,11 +84,11 @@
 <node pkg="rosbag" type="record" name="record" args="--output-name=$(arg bag.name)  $(arg bag.topics) --bz2" if="$(arg bag.enable)">
 </node>
 
-<arg name="scale" default="1.0"/>
-<arg name="rate" default="5"/>
+<arg name="video.scale" default="1.0"/>
+<arg name="video.rate" default="5"/>
 <include file="$(find cv_image_source)/launch/camera.launch">
-	 <arg name="scale" value="$(arg scale)"/>
-	 <arg name="rate" value="$(arg rate)"/>
+	 <arg name="scale" value="$(arg video.scale)"/>
+	 <arg name="rate" value="$(arg video.rate)"/>
 </include>
 
 </launch>

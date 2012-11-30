@@ -80,28 +80,30 @@
 
 
 <arg name="bag.enable" default="false"/>
-<arg name="bag.name" default="/tmp/rost.bag"/>
-<arg name="bag.topics" default="words topics summary summary_observations perplexity"/>
-<node pkg="rosbag" type="record" name="record" args="--output-name=$(arg bag.name)  $(arg bag.topics) --bz2" if="$(arg bag.enable)">
+<arg name="bag.name" default="S$(arg S)_K$(arg K)_alpha$(arg alpha)_beta$(arg beta)"/>
+<arg name="bag.prefix" default="/tmp/rost_"/>
+<arg name="bag.topics" default="words topics summary summary_observations perplexity local_surprise local_surprise_yaw image"/>
+<node pkg="rosbag" type="record" name="record" args="--output-name=$(arg bag.prefix)$(arg bag.name).bag  $(arg bag.topics) --bz2" if="$(arg bag.enable)">
 </node>
 
 
 <arg name="file"/>
 <arg name="video.begin" default="0"/>
 <arg name="video.end" default="-1"/>
-<arg name="subsample" default="1"/>
-<arg name="loop" default="false"/>
-<arg name="scale" default="1.0"/>
-<arg name="rate" default="5"/>
+<arg name="video.subsample" default="1"/>
+<arg name="video.loop" default="false"/>
+<arg name="video.scale" default="1.0"/>
+<arg name="video.rate" default="5"/>
 
 <include file="$(find cv_image_source)/launch/file.launch">
 	 <arg name="file"    value="$(arg file)"/>
 	 <arg name="vbegin"  value="$(arg video.begin)" />
 	 <arg name="vend"    value="$(arg video.end)" />
-	 <arg name="subsample" value="$(arg subsample)" />
-	 <arg name="loop"    value="$(arg loop)"/>
-	 <arg name="scale"   value="$(arg scale)"/>
-	 <arg name="rate"    value="$(arg rate)"/>	 
+	 <arg name="subsample" value="$(arg video.subsample)" />
+	 <arg name="loop"    value="$(arg video.loop)"/>
+	 <arg name="scale"   value="$(arg video.scale)"/>
+	 <arg name="rate"    value="$(arg video.rate)"/>
+	 <arg name="quit_on_eos" value="true"/>
 </include>
 
 
