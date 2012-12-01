@@ -82,7 +82,10 @@
 <arg name="bag.enable" default="false"/>
 <arg name="bag.name" default="S$(arg S)_K$(arg K)_alpha$(arg alpha)_beta$(arg beta)"/>
 <arg name="bag.prefix" default="/tmp/rost_"/>
-<arg name="bag.topics" default="words topics summary summary_observations perplexity local_surprise local_surprise_yaw image"/>
+<arg name="bag.saveimages" default="true"/>
+<arg name="bag.imagetopic" value="" unless="$(arg bag.saveimages)"/>
+<arg name="bag.imagetopic" value="image" if="$(arg bag.saveimages)"/>
+<arg name="bag.topics" default="words topics summary summary_observations perplexity local_surprise local_surprise_yaw $(arg bag.imagetopic)"/>
 <node pkg="rosbag" type="record" name="record" args="--output-name=$(arg bag.prefix)$(arg bag.name).bag  $(arg bag.topics) --bz2" if="$(arg bag.enable)">
 </node>
 
