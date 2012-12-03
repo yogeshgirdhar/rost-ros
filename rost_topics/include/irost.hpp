@@ -114,6 +114,7 @@ struct Cell{
   vector<int> Z; //topic labels
   //vector<int> nW; //distribution/count of W
   vector<int> nZ; //distribution/count of Z
+  vector<vector<int>> nZZ;
   mutex cell_mutex;
   vector<mutex> Z_mutex;
   double perplexity;
@@ -121,7 +122,8 @@ struct Cell{
     id(id_),
     //nW(vocabulary_size, 0),
     nZ(topics_size, 0),
-    Z_mutex(topics_size)
+    Z_mutex(topics_size),
+    nZZ(topics_size, vector<int>(topics_size,0))
   {
   }
   vector<int> get_topics(){
@@ -154,6 +156,15 @@ struct Cell{
     nZ.shrink_to_fit();
     Z_mutex.shrink_to_fit();
   }
+
+  void update_nZZ(){
+    for(size_t i=0;i<nZ.size(); ++i){
+      for(size_t j=i;j<nZ.size(); ++j){
+	nZZ[i][j] = nZZ[j][i] = nZ[i]*nZ[j];
+      }
+    }
+  }
+
 };
 
 
@@ -170,7 +181,7 @@ struct ROST{
   mutex cells_mutex;     //lock for cells, since cells can grow in size
   size_t V, K, C;        //vocab size, topic size, #cells, number of avtive topics
   atomic<int> K_active;
-  double alpha, beta, gamma;
+  double alpha, beta, gamma, delta;
   mt19937 engine;
   //ranlux24_base engine;
   //minstd_rand0 engine;
@@ -179,24 +190,26 @@ struct ROST{
 
   vector<vector<int>> nZW; //nZW[z][w] = freq of words of type w in topic z
   vector<int> weight_Z; //sum_i nZW[z][i]
+  vector<vector<int>> nZZ;
   vector<mutex> global_Z_mutex;
   atomic<size_t> refine_count; //number of cells refined till now;
-
+  mutex nZZ_mutex;
   //{...1,1,1,gamma,0,0,..} 
   //gammaZ stores the probability of seeing a give topic
   //if K_active = n, then gammaZ[n]=gamma, gammaZ[0..n-1] = 1, gammaZ[n+1..K-1]=0
   vector<double> gammaZ;  
   bool fixed_K;
 
-  ROST(size_t V_, size_t K_, double alpha_, double beta_, double gamma_, const PoseNeighborsT& neighbors_ = PoseNeighborsT(), const PoseHashT& pose_hash_ = PoseHashT()):
+  ROST(size_t V_, size_t K_, double alpha_, double beta_, double gamma_, double delta_, const PoseNeighborsT& neighbors_ = PoseNeighborsT(), const PoseHashT& pose_hash_ = PoseHashT()):
     neighbors(neighbors_),
     pose_hash(pose_hash_),
     cell_lookup(1000000, pose_hash),
     V(V_), K(K_), C(0), K_active(K_),
-    alpha(alpha_), beta(beta_), gamma(gamma_),
+    alpha(alpha_), beta(beta_), gamma(gamma_), delta(delta_),
     uniform_K_distr(),
     //    uniform_K_distr(0,K-1),
     nZW(K,vector<int>(V,0)),
+    nZZ(K,vector<int>(K,0)),
     weight_Z(K,0),
     global_Z_mutex(K),
     refine_count(0),
@@ -263,29 +276,17 @@ struct ROST{
   }
 
   void relabel(int w, int z_old, int z_new){
-    //assert(z_old <nZW.size() && z_old >=0);
-    //assert(z_new <nZW.size() && z_new >=0);
-    //    cerr<<"lock: "<<z_old<<"  "<<z_new<<endl;
     if(z_old == z_new) return;
 
-    assert(z_old < static_cast<int>(global_Z_mutex.size()));
-    assert(z_new < static_cast<int>(global_Z_mutex.size()));
-    if(z_old<z_new){      
-      global_Z_mutex[z_old].lock();
-      global_Z_mutex[z_new].lock();
-    }
-    else{
-      global_Z_mutex[z_new].lock();
-      global_Z_mutex[z_old].lock();
-    }
-    //    cerr<<"L:"<<z_old<<","<<z_new<<endl;
+    lock(global_Z_mutex[z_new], global_Z_mutex[z_old]);
+    
     nZW[z_old][w]--;
     weight_Z[z_old]--;
     nZW[z_new][w]++;
     weight_Z[z_new]++;
+
     global_Z_mutex[z_old].unlock();
     global_Z_mutex[z_new].unlock();
-    //cerr<<"U:"<<z_old<<","<<z_new<<endl;
   }
 
   void shuffle_topics(){
@@ -358,6 +359,40 @@ struct ROST{
     c->cell_mutex.unlock();
   }
 
+  void update_nZZ_minus(vector<vector<int>>& diff){
+    lock_guard<mutex> lock(nZZ_mutex);
+    for(size_t i=0; i< K; ++i){
+      for(size_t j=0; j< K; ++j){
+	nZZ[i][j]-=diff[i][j];	
+      }
+    }
+  }
+
+  void update_nZZ_plus(vector<vector<int>>& diff){
+    lock_guard<mutex> lock(nZZ_mutex);
+    for(size_t i=0; i< K; ++i){
+      for(size_t j=0; j< K; ++j){
+	nZZ[i][j]+=diff[i][j];	
+      }
+    }
+  }
+
+  void daydream(vector<int>& topics){
+    vector<int> topics_out(K_active,0);
+    vector<discrete_distribution<>> edge_distribution;
+    vector<float> pEdge(K_active);
+    for(int k=0; k< K_active; ++k){
+      for(int i=0;i<K_active; ++i){
+	pEdge[i]= nZZ[k][i]+delta;
+      }
+      discrete_distribution<> edge_dist(pEdge.begin(), pEdge.end());
+      for(size_t j=0; j<topics[k]; ++j){
+	topics_out[edge_dist(engine)]++;
+      }
+    }
+    topics = topics_out;
+  }
+
   void refine(Cell& c){
     if(c.id >=C)
       return;
@@ -374,8 +409,13 @@ struct ROST{
 
     transform(c.nZ.begin(), c.nZ.end(), nZg.begin(), nZg.begin(), plus<int>());
 
+    if(delta >0){
+      daydream(nZg); //smoothen the topic distirbution by daydreaming
+    }
+
     vector<double> pz(K_active+1,0);
 
+    //update topic label for each word in the cell
     for(size_t i=0;i<c.W.size(); ++i){
       int w = c.W[i];
       int z = c.Z[i];
@@ -404,7 +444,16 @@ struct ROST{
       nZg[z_new]++;
       relabel(w,z,z_new);
       c.relabel(i,z,z_new);
-    } 
+    }
+
+    //subtract edge weight counts from the global model
+    update_nZZ_minus(c.nZZ);
+
+    //update the topic - topic edge weights for the cell
+    c.update_nZZ();
+
+    //add edge weight counts to the global model
+    update_nZZ_plus(c.nZZ);
   }
 
   //estimate maximum likelihood topics for the cell
