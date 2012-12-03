@@ -8,6 +8,7 @@ int main(int argc, char*argv[]){
   po::options_description options("Topic modeling of data with 1 dimensional structure.");
   load_rost_base_options(options).add_options()
     ("gamma", po::value<double>()->default_value(0.1), "Rate of topic growth")
+    ("delta", po::value<double>()->default_value(0), "How much to day dream")
     ("neighborhood.size,g", po::value<int>()->default_value(1), "Depth of the neighborhood");
   
   auto args = read_command_line(argc, argv, options);
@@ -17,6 +18,7 @@ int main(int argc, char*argv[]){
 					    args["alpha"].as<double>(),
 					    args["beta"].as<double>(),
 					    args["gamma"].as<double>(),
+					    args["delta"].as<double>(),
 					    neighbors<int>(args["neighborhood.size"].as<int>()),
 					    hash<int>());
   
