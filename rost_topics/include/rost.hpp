@@ -299,28 +299,14 @@ struct ROST{
   void relabel(int w, int z_old, int z_new){
     //    cerr<<"lock: "<<z_old<<"  "<<z_new<<endl;
     if(z_old == z_new) return;
-    //lock(global_Z_mutex[z_old<z_new?z_old:z_new ], global_Z_mutex[z_old<z_new?z_new:z_old]);
-    //if(z_old >= static_cast<int>(global_Z_mutex.size())){
-    //      cerr<<"z_old="<<z_old<<endl;
-    // }
-    //if(z_new >= static_cast<int>(global_Z_mutex.size())){
-    //  cerr<<"z_new="<<z_new<<endl;
-    // }
-    assert(z_old < static_cast<int>(global_Z_mutex.size()));
-    assert(z_new < static_cast<int>(global_Z_mutex.size()));
-    if(z_old<z_new){      
-      global_Z_mutex[z_old].lock();
-      global_Z_mutex[z_new].lock();
-    }
-    else{
-      global_Z_mutex[z_new].lock();
-      global_Z_mutex[z_old].lock();
-    }
-    //    cerr<<"L:"<<z_old<<","<<z_new<<endl;
+
+    lock(global_Z_mutex[z_new], global_Z_mutex[z_old]);
+
     nZW[z_old][w]--;
     weight_Z[z_old]--;
     nZW[z_new][w]++;
     weight_Z[z_new]++;
+
     global_Z_mutex[z_old].unlock();
     global_Z_mutex[z_new].unlock();
     //cerr<<"U:"<<z_old<<","<<z_new<<endl;
@@ -378,8 +364,6 @@ struct ROST{
 
 
     //do the insertion
-    //c->W.resize(c->W.size()+words.size());
-    //c->Z.resize(c->Z.size()+words.size());
     for(auto w : words){
       c->W.push_back(w);
       //generate random topic label
