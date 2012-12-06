@@ -11,23 +11,26 @@
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
 #include "feature_detector.hpp"
+#include "bow.hpp"
 using namespace std;
 
 namespace rost{
   using namespace rost_common;
 
-  //sensor_msgs::CvBridge bridge;
-
-
-  struct BOW{    
-    string name;
-    int vocabulary_begin;
-    int vocabulary_size;
-    BOW(const string& name_, int vb, int vs=0):name(name_), vocabulary_begin(vb), vocabulary_size(vs){}
-    virtual WordObservation::Ptr operator()(cv::Mat& img, unsigned image_seq, const vector<int>& pose)=0;   
-  };
-
   vector<cv::Ptr<BOW> > word_extractors;
+
+
+  struct LBPBOW:public BOW{
+    WordObservation::Ptr operator()(cv::Mat& imgs, unsigned image_seq, const vector<int>& pose){
+      WordObservation::Ptr z(new rost_common::WordObservation);
+      z->source="LBP";
+      z->seq = image_seq;
+      z->observation_pose=pose;
+      z->vocabulary_begin=vocabulary_begin;
+      z->vocabulary_size=256;
+      return z;
+    }
+  };
 
   struct ColorBOW:public BOW{
     int size_cols;
