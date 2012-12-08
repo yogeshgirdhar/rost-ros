@@ -6,7 +6,10 @@
 <arg name="orb" default="true" />
 <arg name="surf" default="false" />
 <arg name="grid_orb" default="false" />
+<arg name="lbp" default="false" />
+<arg name="num_lbp" default="1000" />
 <arg name="image_topic" default="/image" />
+
 
 <node pkg="rost_vision" type="bow" name="visualwords">
   <!--param name="vocabulary" type="string" value="$(find summarizer)/share/vocab/underwater1k.yml"/-->
@@ -19,6 +22,8 @@
   <param name="use_orb" value="$(arg orb)"/>
   <param name="use_surf" value="$(arg surf)"/>
   <param name="use_grid_orb" value="$(arg grid_orb)"/>
+  <param name="use_lbp" value="$(arg lbp)"/>
+  <param name="num_lbp" value="$(arg num_lbp)"/>
   <param name="image" value="$(arg image_topic)"/>
 </node>
 </launch>
