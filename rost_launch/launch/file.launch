@@ -34,13 +34,21 @@
 <arg name="bow.hue" default="true"/>
 <arg name="bow.intensity" default="false"/>
 <arg name="bow.orb" default="true"/>
+<arg name="bow.detector.orb" default="true"/>
+<arg name="bow.lbp" default="false"/>
+<arg name="bow.num_lbp" default="1000"/>
 <include file="$(find rost_vision)/launch/visualwords.xml" if="$(arg bow.orb)">
   <arg name="hue" value="$(arg bow.hue)"/>
+  <arg name="orb" value="$(arg bow.detector.orb)"/>
   <arg name="intensity" value="$(arg bow.intensity)"/>
+  <arg name="lbp" value="$(arg bow.lbp)"/>
+  <arg name="num_lbp" value="$(arg bow.num_lbp)"/>
 </include>
 <include file="$(find rost_vision)/launch/visualwords_surf.xml" unless="$(arg bow.orb)">
   <arg name="hue" value="$(arg bow.hue)"/>
   <arg name="intensity" value="$(arg bow.intensity)"/>
+  <arg name="lbp" value="$(arg bow.lbp)"/>
+  <arg name="num_lbp" value="$(arg bow.num_lbp)"/>
 </include>
 
 <arg name="topics.enable" default="true"/>

@@ -21,13 +21,64 @@ namespace rost{
 
 
   struct LBPBOW:public BOW{
+    cv::RNG rng;
+    cv::Mat_<unsigned char> gray;
+    cv::Mat_<unsigned char> tmp;
+    int num_words;
+    LBPBOW(int vocabulary_begin_=0, double img_scale_=1.0, int num_words_=1000):
+      BOW("LBP",vocabulary_begin_,256),
+      num_words(num_words_)
+    {
+      ROS_INFO(">>>>>>>>>>>>>>>>>>>>>>>>>>>>Inilizing LBP words: %d",num_words);
+    }
     WordObservation::Ptr operator()(cv::Mat& imgs, unsigned image_seq, const vector<int>& pose){
+      ROS_INFO("LBP: %d",image_seq);
+
       WordObservation::Ptr z(new rost_common::WordObservation);
       z->source="LBP";
       z->seq = image_seq;
       z->observation_pose=pose;
       z->vocabulary_begin=vocabulary_begin;
       z->vocabulary_size=256;
+
+      int nwords=num_words;
+      gray.create(imgs.rows,imgs.cols);
+      cvtColor(imgs,tmp,CV_BGR2GRAY);
+
+      float local_scale=0.25;
+      cv::resize(tmp,gray,cv::Size(),local_scale,local_scale);
+      vector<int> word_hist(256);
+      for(int i=0;i<nwords;++i){
+	int scale = 1;
+	int x = rng.next()%(gray.cols -8) +4;
+	int y = rng.next()%(gray.rows -8) +4;
+	int word =0;
+	//ROS_INFO("LBP x:%d, y:%d  word:%d",x,y,word);
+	fill(word_hist.begin(), word_hist.end(), 0);
+	int r=0;
+	for(int rx=x-r; rx<=x+r; ++rx)	for(int ry=y-r; ry<=y+r; ++ry){
+	    word=0;
+	    for(int gx=rx-1; gx <=rx+1; gx++) for(int gy=ry-1; gy <=ry+1; gy++){
+	      //ROS_INFO("LBP gx:%d, gy:%d  word:%d",gx,gy,word);
+	      if(gx != rx || gy !=ry)
+		{
+		  word = word << 1;
+		  word = word | (gray.at<unsigned char>(gy,gx) > gray.at<unsigned char>(ry,rx)); 
+		  //cerr<<word<<endl;
+		  //assert(word<256);
+		}
+	      }
+	    word_hist[word]++;
+	  }
+	vector<int>::iterator it = max_element(word_hist.begin(), word_hist.end());
+	//copy(word_hist.begin(), word_hist.end(), ostream_iterator<int>(cerr," "));cerr<<endl;
+	word = it - word_hist.begin();
+	//cerr<<"word= "<<word<<endl;
+	z->words.push_back(vocabulary_begin + word); 
+	z->word_pose.push_back(x/local_scale);
+	z->word_pose.push_back(y/local_scale);
+	z->word_scale.push_back(scale*2/local_scale);	
+      }        
       return z;
     }
   };
@@ -229,8 +280,8 @@ int main(int argc, char**argv){
   ros::NodeHandle nhp("~");
   //ros::NodeHandle nh;
   std::string vocabulary_filename, image_topic_name, feature_descriptor_name;
-  int num_surf, num_orb, num_grid_orb;
-  bool use_surf, use_hue, use_intensity, use_orb, use_grid_orb;
+  int num_surf, num_orb, num_grid_orb, num_lbp;
+  bool use_surf, use_hue, use_intensity, use_orb, use_grid_orb, use_lbp;
   cerr<<"namespace:"<<nhp.getNamespace()<<endl;
 
   double rate; //looping rate
@@ -246,6 +297,9 @@ int main(int argc, char**argv){
 
   nhp.param<bool>("use_hue",use_hue, true);
   nhp.param<bool>("use_intensity",use_intensity, false);
+
+  nhp.param<bool>("use_lbp",use_lbp, false);
+  nhp.param<int>("num_lbp",num_lbp, 1000);
 
   nhp.param<double>("scale",rost::img_scale, 1.0);
   nhp.param<string>("image",image_topic_name, "/image");
@@ -296,6 +350,11 @@ int main(int argc, char**argv){
 
   if(use_hue || use_intensity){
     rost::word_extractors.push_back(cv::Ptr<rost::BOW>(new rost::ColorBOW(v_begin, 32, rost::img_scale, use_hue, use_intensity)));
+    v_begin+=rost::word_extractors.back()->vocabulary_size;
+  }
+
+  if(use_lbp){
+    rost::word_extractors.push_back(cv::Ptr<rost::BOW>(new rost::LBPBOW(v_begin, rost::img_scale, num_lbp)));
     v_begin+=rost::word_extractors.back()->vocabulary_size;
   }
   
