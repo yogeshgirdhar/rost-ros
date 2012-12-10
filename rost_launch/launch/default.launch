@@ -113,7 +113,8 @@
 </node>
 
 
-<arg name="file"/>
+<arg name="camera" default="false"/>
+<arg name="file" default=""/>
 <arg name="video.begin" default="0"/>
 <arg name="video.end" default="-1"/>
 <arg name="video.subsample" default="1"/>
@@ -121,7 +122,7 @@
 <arg name="video.scale" default="1.0"/>
 <arg name="video.rate" default="5"/>
 
-<include file="$(find cv_image_source)/launch/file.launch">
+<include file="$(find cv_image_source)/launch/file.launch" unless="$(arg camera)" >
 	 <arg name="file"    value="$(arg file)"/>
 	 <arg name="vbegin"  value="$(arg video.begin)" />
 	 <arg name="vend"    value="$(arg video.end)" />
@@ -132,6 +133,10 @@
 	 <arg name="quit_on_eos" value="true"/>
 </include>
 
+<include file="$(find cv_image_source)/launch/camera.launch" if="$(arg camera)">
+	 <arg name="scale" value="$(arg video.scale)"/>
+	 <arg name="rate" value="$(arg video.rate)"/>
+</include>
 
 
 </launch>
