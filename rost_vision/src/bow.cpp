@@ -280,7 +280,7 @@ int main(int argc, char**argv){
   ros::NodeHandle nhp("~");
   //ros::NodeHandle nh;
   std::string vocabulary_filename, image_topic_name, feature_descriptor_name;
-  int num_surf, num_orb, num_grid_orb, num_lbp, num_dense;
+  int num_surf, num_orb, num_grid_orb, num_lbp, num_dense, color_cell_size;
   bool use_surf, use_hue, use_intensity, use_orb, use_grid_orb, use_lbp, use_dense;
   cerr<<"namespace:"<<nhp.getNamespace()<<endl;
 
@@ -297,6 +297,7 @@ int main(int argc, char**argv){
 
   nhp.param<bool>("use_hue",use_hue, true);
   nhp.param<bool>("use_intensity",use_intensity, false);
+  nhp.param<int>("color_cell_size",color_cell_size, 32);
 
   nhp.param<bool>("use_lbp",use_lbp, false);
   nhp.param<int>("num_lbp",num_lbp, 1000);
@@ -358,7 +359,7 @@ int main(int argc, char**argv){
   }
 
   if(use_hue || use_intensity){
-    rost::word_extractors.push_back(cv::Ptr<rost::BOW>(new rost::ColorBOW(v_begin, 32, rost::img_scale, use_hue, use_intensity)));
+    rost::word_extractors.push_back(cv::Ptr<rost::BOW>(new rost::ColorBOW(v_begin, color_cell_size, rost::img_scale, use_hue, use_intensity)));
     v_begin+=rost::word_extractors.back()->vocabulary_size;
   }
 
