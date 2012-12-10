@@ -30,28 +30,45 @@
 </node>
 
 
+<arg name="bow.enable" default="true"/>
+<arg name="bow.use_orb_descriptor" default="true"/>
+<arg name="bow.scale" default="1"/>
+<arg name="bow.rate" default="0"/>
 <arg name="bow.hue" default="true"/>
 <arg name="bow.intensity" default="false"/>
 <arg name="bow.orb" default="true"/>
+<arg name="bow.surf" default="false"/>
+<arg name="bow.grid_orb" default="false"/>
+<arg name="bow.num_grid_orb" default="1000"/>
 <arg name="bow.lbp" default="false"/>
 <arg name="bow.num_lbp" default="1000"/>
-<include file="$(find rost_vision)/launch/visualwords.xml" if="$(arg bow.orb)">
-  <arg name="hue" value="$(arg bow.hue)"/>
-  <arg name="intensity" value="$(arg bow.intensity)"/>
-  <arg name="lbp" value="$(arg bow.lbp)"/>
-  <arg name="num_lbp" value="$(arg bow.num_lbp)"/>
-</include>
-<include file="$(find rost_vision)/launch/visualwords_surf.xml" unless="$(arg bow.orb)">
-  <arg name="hue" value="$(arg bow.hue)"/>
-  <arg name="intensity" value="$(arg bow.intensity)"/>
-  <arg name="lbp" value="$(arg bow.lbp)"/>
-  <arg name="num_lbp" value="$(arg bow.num_lbp)"/>
-</include>
+<arg name="bow.dense" default="false"/>
+<arg name="bow.image_topic" default="/image" />
+<node pkg="rost_vision" type="bow" name="visualwords">
+  <!--param name="vocabulary" type="string" value="$(find summarizer)/share/vocab/underwater1k.yml"/-->
+  <param name="vocabulary" type="string" value="$(find rost_vision)/data/orb_vocab/barbados2010_5000.yml" if="$(arg bow.use_orb_descriptor)"/>
+  <param name="vocabulary" type="string" value="$(find rost_vision)/data/surf_vocab/underwater1k.yml" unless="$(arg bow.use_orb_descriptor)"/>
+  <param name="feature_descriptor" type="string" value="ORB" if="$(arg bow.use_orb_descriptor)" />
+  <param name="feature_descriptor" type="string" value="SURF" unless="$(arg bow.use_orb_descriptor)"/>
+  <param name="scale" type="double" value="$(arg bow.scale)"/>
+  <param name="rate" type="int" value="$(arg bow.rate)"/>
+  <param name="use_hue" value="$(arg bow.hue)"/>
+  <param name="use_intensity" value="$(arg bow.intensity)"/>
+  <param name="use_orb" value="$(arg bow.orb)"/>
+  <param name="use_surf" value="$(arg bow.surf)"/>
+  <param name="use_grid_orb" value="$(arg bow.grid_orb)"/>
+  <param name="num_grid_orb" value="$(arg bow.num_grid_orb)"/>
+  <param name="use_lbp" value="$(arg bow.lbp)"/>
+  <param name="num_lbp" value="$(arg bow.num_lbp)"/>
+  <param name="use_dense" value="$(arg bow.dense)"/>
+  <param name="image" value="$(arg bow.image_topic)"/>
+</node>
+
 
 <arg name="topics.enable" default="true"/>
 <arg name="K" default="16"/>
-<arg name="V" value="5500" if="$(arg bow.orb)"/>
-<arg name="V" value="1500" unless="$(arg bow.orb)"/>
+<arg name="V" value="5500" if="$(arg bow.use_orb_descriptor)"/>
+<arg name="V" value="1500" unless="$(arg bow.use_orb_descriptor)"/>
 <arg name="alpha" default="0.1"/>
 <arg name="beta" default="0.1"/>
 <arg name="tau" default="2.0"/>

@@ -32,7 +32,7 @@ void words_callback(const rost_common::WordObservation::ConstPtr&  z){
   if(!img_msg) return;
   cv_bridge::CvImagePtr cv_ptr;
   cv_ptr = cv_bridge::toCvCopy(img_msg, enc::BGR8);
-  cv::Mat out_img = draw_keypoints(z, cv_ptr->image);
+  cv::Mat out_img = draw_keypoints(z, cv_ptr->image.clone());
   cv::imshow(z->source, out_img);
   cv::waitKey(5);  
 }
@@ -47,7 +47,7 @@ void local_surprise_callback(const rost_common::LocalSurprise::ConstPtr&  msg){
   catch (cv_bridge::Exception& e){
     ROS_ERROR("cv_bridge exception: %s", e.what());
   }
-  cv::Mat img = cv_ptr->image;
+  cv::Mat img = cv_ptr->image.clone();
   img = draw_local_surprise(msg,img);
   cv::imshow("Look!", img);
   cv::waitKey(5);  
