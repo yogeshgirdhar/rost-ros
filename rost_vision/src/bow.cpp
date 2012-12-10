@@ -280,8 +280,8 @@ int main(int argc, char**argv){
   ros::NodeHandle nhp("~");
   //ros::NodeHandle nh;
   std::string vocabulary_filename, image_topic_name, feature_descriptor_name;
-  int num_surf, num_orb, num_grid_orb, num_lbp;
-  bool use_surf, use_hue, use_intensity, use_orb, use_grid_orb, use_lbp;
+  int num_surf, num_orb, num_grid_orb, num_lbp, num_dense;
+  bool use_surf, use_hue, use_intensity, use_orb, use_grid_orb, use_lbp, use_dense;
   cerr<<"namespace:"<<nhp.getNamespace()<<endl;
 
   double rate; //looping rate
@@ -301,6 +301,10 @@ int main(int argc, char**argv){
   nhp.param<bool>("use_lbp",use_lbp, false);
   nhp.param<int>("num_lbp",num_lbp, 1000);
 
+
+  nhp.param<bool>("use_dense",use_dense, false);
+  nhp.param<int>("num_dense",num_dense, 1000);
+
   nhp.param<double>("scale",rost::img_scale, 1.0);
   nhp.param<string>("image",image_topic_name, "/image");
   nhp.param<double>("rate",rate, 0);
@@ -316,11 +320,12 @@ int main(int argc, char**argv){
   int v_begin=0;
   vector<string> feature_detector_names;
   vector<int> feature_sizes;
-  if(use_surf || use_orb || use_grid_orb){
+  if(use_surf || use_orb || use_grid_orb || use_dense){
     if(!nhp.getParam("vocabulary",vocabulary_filename)){
       ROS_ERROR("Must specify a vocabulary!");
       return 0;
     }
+    ROS_INFO("BOW using vocabulary: %s", vocabulary_filename.c_str());
   }
 
   if(use_surf){
@@ -337,8 +342,12 @@ int main(int argc, char**argv){
     feature_detector_names.push_back("Grid2ORB");
     feature_sizes.push_back(num_grid_orb);
   }
+  if(use_dense){
+    feature_detector_names.push_back("Dense");
+    feature_sizes.push_back(num_dense);
+  }
 
-  if(use_surf||use_grid_orb || use_orb){
+  if(use_surf||use_grid_orb || use_orb || use_dense){
     rost::word_extractors.push_back(cv::Ptr<rost::BOW>(new rost::FeatureBOW(v_begin,
 									    vocabulary_filename, 
 									    feature_detector_names,

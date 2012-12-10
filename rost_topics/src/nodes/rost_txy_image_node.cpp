@@ -146,11 +146,11 @@ void broadcast_topics(int time, const W& worddata_for_poses){
   topics_pub.publish(z);
   perplexity_pub.publish(msg_ppx);
   topic_weights_pub.publish(msg_topic_weights);
-  cerr<<"Publish topics for seq"<<z->seq<<": "<<z->words.size()<<endl;
+  //cerr<<"Publish topics for seq"<<z->seq<<": "<<z->words.size()<<endl;
 }
 
 void words_callback(const rost_common::WordObservation::ConstPtr&  words){
-  cerr<<"Got words: "<<words->source<<"  #"<<words->words.size()<<endl;
+  //cerr<<"Got words: "<<words->source<<"  #"<<words->words.size()<<endl;
   int observation_time = words->observation_pose[0];
   if(last_time>=0 && (last_time != observation_time)){
     broadcast_topics(last_time, worddata_for_pose);
