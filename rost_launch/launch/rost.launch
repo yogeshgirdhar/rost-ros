@@ -144,6 +144,8 @@
 <include file="$(find cv_image_source)/launch/camera.launch" if="$(arg camera)">
 	 <arg name="scale" value="$(arg video.scale)"/>
 	 <arg name="rate" value="$(arg video.rate)"/>
+	 <arg name="width"   value="$(arg image.width)"/>
+	 <arg name="height"  value="$(arg image.height)"/>
 </include>
 </group>
 
