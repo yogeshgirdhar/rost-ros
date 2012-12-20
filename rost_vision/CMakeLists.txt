@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 2.4.6)
 
+
+
 include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 
 # Set the build type.  Options are:
@@ -11,11 +13,28 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 #set(ROS_BUILD_TYPE RelWithDebInfo)
 #set(ROS_BUILD_TYPE Debug)
 #set(ROS_BUILD_TYPE Release)
-
-
-
-
 rosbuild_init()
+
+
+include(ExternalProject)
+set(FLANN_PREFIX "${PROJECT_SOURCE_DIR}/ext/flann")
+set(FLANN_INSTALL_DIR "${PROJECT_SOURCE_DIR}/ext")
+set(FLANN_CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${FLANN_INSTALL_DIR})
+
+message("sfml_PREFIX='${sfml_PREFIX}'")
+message("sfml_INSTALL_DIR='${sfml_INSTALL_DIR}'")
+message("sfml_CMAKE_ARGS='${sfml_CMAKE_ARGS}'")
+message("GIT_EXECUTABLE='${GIT_EXECUTABLE}'")
+
+ExternalProject_Add(sfml
+  PREFIX ${sfml_PREFIX}
+  GIT_REPOSITORY https://github.com/LaurentGomila/SFML.git
+  INSTALL_DIR ${sfml_INSTALL_DIR}
+  CMAKE_ARGS ${sfml_CMAKE_ARGS}
+)
+
+
+
 
 #set the default path for built executables to the "bin" directory
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
@@ -35,6 +54,7 @@ find_package(OpenCV REQUIRED )
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories("${PROJECT_SOURCE_DIR}/ext/include")
 set(FLANN_LIB "${PROJECT_SOURCE_DIR}/ext/lib/libflann_cpp.so")
+
 
 
 #common commands for building c++ executables and libraries
