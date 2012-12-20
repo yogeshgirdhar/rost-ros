@@ -50,7 +50,7 @@
 <arg name="bow.num_lbp" default="1000"/>
 <arg name="bow.dense" default="false"/>
 <arg name="bow.image_topic" default="$(arg image)" />
-<node pkg="rost_vision" type="bow" name="visualwords">
+<node pkg="rost_vision" type="bow" name="visualwords" if="$(arg bow.enable)">
   <param name="vocabulary" type="string" value="$(find rost_vision)/data/orb_vocab/barbados2010_5000.yml" if="$(arg bow.use_orb_descriptor)"/>
   <param name="vocabulary" type="string" value="$(find rost_vision)/data/surf_vocab/underwater1k.yml" unless="$(arg bow.use_orb_descriptor)"/>
   <param name="feature_descriptor" type="string" value="ORB" if="$(arg bow.use_orb_descriptor)" />
