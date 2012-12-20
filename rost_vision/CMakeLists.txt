@@ -16,22 +16,18 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 rosbuild_init()
 
 
-include(ExternalProject)
-set(FLANN_PREFIX "${PROJECT_SOURCE_DIR}/ext/flann")
-set(FLANN_INSTALL_DIR "${PROJECT_SOURCE_DIR}/ext")
-set(FLANN_CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${FLANN_INSTALL_DIR})
+#include(ExternalProject)
+#set(FLANN_PREFIX "${PROJECT_SOURCE_DIR}/ext/flann")
 
-message("sfml_PREFIX='${sfml_PREFIX}'")
-message("sfml_INSTALL_DIR='${sfml_INSTALL_DIR}'")
-message("sfml_CMAKE_ARGS='${sfml_CMAKE_ARGS}'")
-message("GIT_EXECUTABLE='${GIT_EXECUTABLE}'")
+#set(FLANN_INSTALL_DIR "${PROJECT_SOURCE_DIR}/ext")
+#set(FLANN_CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${FLANN_INSTALL_DIR})
 
-ExternalProject_Add(sfml
-  PREFIX ${sfml_PREFIX}
-  GIT_REPOSITORY https://github.com/LaurentGomila/SFML.git
-  INSTALL_DIR ${sfml_INSTALL_DIR}
-  CMAKE_ARGS ${sfml_CMAKE_ARGS}
-)
+#ExternalProject_Add(sfml
+#  PREFIX ${sfml_PREFIX}
+#  GIT_REPOSITORY https://github.com/LaurentGomila/SFML.git
+#  INSTALL_DIR ${sfml_INSTALL_DIR}
+#  CMAKE_ARGS ${sfml_CMAKE_ARGS}
+#)
 
 
 
