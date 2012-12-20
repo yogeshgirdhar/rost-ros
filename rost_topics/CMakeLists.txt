@@ -40,8 +40,6 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #rosbuild_add_executable(example examples/example.cpp)
 #target_link_libraries(example ${PROJECT_NAME})
 
-
-
 #check the gcc version, if its greater than 4.7, then use std=c++11, else c++0x
 if (CMAKE_COMPILER_IS_GNUCC)
     execute_process(COMMAND ${CMAKE_CXX_COMPILER} -dumpversion

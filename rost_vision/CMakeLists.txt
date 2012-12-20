@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 2.4.6)
+
 include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 
 # Set the build type.  Options are:
@@ -8,6 +9,11 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 #  RelWithDebInfo : w/ debug symbols, w/ optimization
 #  MinSizeRel     : w/o debug symbols, w/ optimization, stripped binaries
 #set(ROS_BUILD_TYPE RelWithDebInfo)
+#set(ROS_BUILD_TYPE Debug)
+#set(ROS_BUILD_TYPE Release)
+
+
+
 
 rosbuild_init()
 
@@ -21,11 +27,21 @@ rosbuild_genmsg()
 #uncomment if you have defined services
 rosbuild_gensrv()
 
+
+set(CMAKE_MODULE_PATH  "${PROJECT_SOURCE_DIR}/cmake")
+find_package(OpenCV REQUIRED )
+#find_package(Flann)
+
+include_directories(${PROJECT_SOURCE_DIR})
+include_directories("${PROJECT_SOURCE_DIR}/ext/include")
+set(FLANN_LIB "${PROJECT_SOURCE_DIR}/ext/lib/libflann_cpp.so")
+
+
 #common commands for building c++ executables and libraries
 #rosbuild_add_library(${PROJECT_NAME} src/example.cpp)
 #target_link_libraries(${PROJECT_NAME} another_library)
 #rosbuild_add_boost_directories()
-FIND_PACKAGE( OpenCV REQUIRED )
+
 #rosbuild_add_executable(image_source src/image_source.cpp)
 rosbuild_add_executable(bow src/bow.cpp)
 rosbuild_add_executable(bowtk src/bowtk.cpp src/image_source.cpp)
@@ -35,6 +51,6 @@ rosbuild_link_boost(bow system)
 rosbuild_link_boost(bowtk program_options)
 rosbuild_link_boost(orbtk program_options)
 #target_link_libraries(example ${PROJECT_NAME})
-target_link_libraries(bow ${OpenCV_LIBS})
+target_link_libraries(bow ${OpenCV_LIBS} ${FLANN_LIB})
 target_link_libraries(bowtk ${OpenCV_LIBS})
 target_link_libraries(orbtk ${OpenCV_LIBS})

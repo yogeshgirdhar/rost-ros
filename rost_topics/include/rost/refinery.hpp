@@ -79,7 +79,7 @@ void parallel_refine_tau(R* rost, int nt, double tau, size_t iter){
 }
 
 
-template<typename R, typename Stop>
+/*template<typename R, typename Stop>
 void dowork_parallel_refine_online(R* rost, double tau, int thread_id, Stop stop){
   gamma_distribution<double> gamma1(tau,1.0);
   gamma_distribution<double> gamma2(1.0,1.0);
@@ -89,6 +89,40 @@ void dowork_parallel_refine_online(R* rost, double tau, int thread_id, Stop stop
     double r_gamma1 = gamma1(rost->engine), r_gamma2 = gamma2(rost->engine);
     double r_beta = r_gamma1/(r_gamma1+r_gamma2);
     double p_refine_current = generate_canonical<double, 10>(rost->engine);
+    if(rost->C > 0){
+      size_t cid;
+      if(p_refine_current < 0.9 || rost->C < now_size || tau==1.0){
+	cid = floor(r_beta * static_cast<double>(rost->C));
+	//cerr<<"global: "<<cid<<endl;
+      }
+      else{
+	cid = max<int>(0,rost->C - now_size + floor(r_beta * now_size));
+	//cerr<<"local: "<<cid<<"/"<<rost->C<<endl;
+      }
+      if(cid >= rost->C) 
+	cid = rost->C-1;
+
+      assert(cid < rost->C);
+      if(rost->get_cell(cid)->cell_mutex.try_lock()){
+	//	cerr<<"T:"<<thread_id<<" >"<<cid<<endl;
+	rost->refine(*rost->get_cell(cid));
+	rost->get_cell(cid)->cell_mutex.unlock();
+      }
+    }
+  }
+}
+*/
+template<typename R, typename Stop>
+void dowork_parallel_refine_online(R* rost, double tau, int thread_id, Stop stop){
+  gamma_distribution<double> gamma1(tau,1.0);
+  gamma_distribution<double> gamma2(1.0,1.0);
+  size_t now_size = 200;
+ 
+  while(! stop->load() ){
+    double r_gamma1 = gamma1(rost->engine), r_gamma2 = gamma2(rost->engine);
+    double r_beta = r_gamma1/(r_gamma1+r_gamma2);
+    double p_refine_global = generate_canonical<double, 20>(rost->engine);
+    double p_refine_current = generate_canonical<double, 20>(rost->engine);
     if(rost->C > 0){
       size_t cid;
       if(p_refine_current < 0.9 || rost->C < now_size || tau==1.0){
