@@ -8,13 +8,13 @@ Getting the source:
 
 Building:
 3) rosmake cv_image_source
-4) rosmake rost_common rost_topics rost_vision rost_visualize
+4) rosmake rost
 
 Running on camera:
-roslaunch rost_launch camera.launch [options]
+roslaunch rost_launch rost.launch camera:=true [options]
 
-Running a video file:
-roslaunch rost_launch file.launch file:=/absolute/path/of/video.mp4 [options]
+Running on a video file:
+roslaunch rost_launch rost.launch file:=/absolute/path/of/video.mp4 [options]
 
 
 Optional arguments the the launch file(with default values shown):
@@ -27,12 +27,13 @@ tau:=2.0         how important is present compared to past for topic refinement.
 K:=16            number of topics
 S:=16            summary size
 vout:=<out.avi>  record the visualization video. output is MJPEG avi file.
-rate:=5          process video at 5 fps
+video.rate:=5          process video at 5 fps
 video.subsample:=2     temporally subsample the video (only applicable when using file.launch)
-loop:=false      loop the video (only with file.launch)
-scale:=1.0       scale the input video. To process the video at half the linear size, set scale:=0.5
+video.loop:=false      loop the video (only with file.launch)
+video.scale:=1.0       scale the input video. To process the video at half the linear size, set scale:=0.5
 threads:=4       number of threads to spawn for topic refinement. 
 cell.width:=160  split the input image into windows of size 160x160
-
+image.width:=640       tell the system the size of the input vide
+image.height:=480
 
 There are many more options. To see them open the launch file.

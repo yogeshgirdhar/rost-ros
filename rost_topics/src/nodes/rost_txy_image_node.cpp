@@ -21,8 +21,8 @@ map<int, set<pose_t>> cellposes_for_time;  //list of all poses observed at a giv
 map<pose_t, vector<int>> worddata_for_pose;  //stores [pose]-> {x_i,y_i,scale_i,.....} for the current time
 
 int K, V, cell_width; //number of topic types, number of word types
-double k_alpha, k_beta, k_gamma, k_tau;
-int G_time, G_space, num_threads;
+double k_alpha, k_beta, k_gamma, k_tau, p_refine_last_observation;
+int G_time, G_space, num_threads, observation_size;
 ros::Publisher topics_pub, perplexity_pub, topic_weights_pub; 
 
 
@@ -185,13 +185,15 @@ int main(int argc, char**argv){
   ros::NodeHandle *nh = new ros::NodeHandle("~");
 
   bool polled_refine;
-  nh->param<int>("K", K, 16); //number of topics
+  nh->param<int>("K", K, 64); //number of topics
   nh->param<int>("V", V,1500); //vocabulary size
   //  nh->param<int>("max_refines_per_iter", max_refines_per_iter,0); //vocabulary size 1000 + 16 + 18
   nh->param<double>("alpha", k_alpha,0.1);
   nh->param<double>("beta", k_beta,0.1);
   nh->param<double>("gamma", k_gamma,0.0);
-  nh->param<double>("tau", k_tau,2.0);  //beta(1,tau) is used to pick cells for refinement
+  nh->param<double>("tau", k_tau,2.0);  //beta(1,tau) is used to pick cells for global refinement
+  nh->param<int>("observation_size", observation_size, 64);  //number of cells in an observation
+  nh->param<double>("p_refine_last_observation", p_refine_last_observation, 0.5);  //probability of refining last observation
   nh->param<int>("num_threads", num_threads,2);  //beta(1,tau) is used to pick cells for refinement
   nh->param<int>("cell_width", cell_width, 64);
   nh->param<int>("G_time", G_time,4);
@@ -225,7 +227,8 @@ int main(int argc, char**argv){
   else{ //refine automatically
     ROS_INFO("Topics will be refined online.");
     atomic<bool> stop;   stop.store(false);
-    auto workers =  parallel_refine_online(rost, k_tau, num_threads, &stop);
+    //    auto workers =  parallel_refine_online(rost, k_tau, num_threads, &stop);
+    auto workers =  parallel_refine_online2(rost, k_tau,  p_refine_last_observation, observation_size, num_threads, &stop);
     
     cerr<<"Spinning..."<<endl;
     ros::spin();
