@@ -5,6 +5,7 @@
 #include <opencv/cv.h>
 #include <opencv/highgui.h>
 #include <opencv2/nonfree/nonfree.hpp>
+#include <opencv2/flann/flann.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include <iostream>
 #include "rost_common/WordObservation.h"
@@ -12,6 +13,8 @@
 #include <boost/thread/thread.hpp>
 #include "feature_detector.hpp"
 #include "bow.hpp"
+//#include "binary_feature_matcher.hpp"
+#include "flann_matcher.hpp"
 using namespace std;
 
 namespace rost{
@@ -157,8 +160,11 @@ namespace rost{
     //    cv::Ptr<cv::FeatureDetector> feature_detector;
     vector<cv::Ptr<cv::FeatureDetector> >feature_detectors;
     vector<string >feature_detector_names;
+    string feature_descriptor_name;
     cv::Ptr<cv::DescriptorExtractor> desc_extractor;
-    cv::Ptr<cv::DescriptorMatcher> desc_matcher;
+    //    cv::Ptr<cv::DescriptorMatcher> desc_matcher;
+    cv::Ptr<cv::DescriptorMatcher>  desc_matcher;
+    cv::Ptr<FlannMatcher> flann_matcher;
     cv::Mat vocabulary;
     
     double img_scale;
@@ -168,10 +174,11 @@ namespace rost{
 	       const string& vocabulary_filename, 
 	       const vector<string>& feature_detector_names_, 
 	       const vector<int>& feature_sizes_, 
-	       const string& feature_descriptor_name="SURF", 
+	       const string& feature_descriptor_name_="SURF", 
 	       double img_scale_=1.0):
-      BOW(feature_descriptor_name, vocabulary_begin_),
+      BOW(feature_descriptor_name_, vocabulary_begin_),
       feature_detector_names(feature_detector_names_),
+      feature_descriptor_name(feature_descriptor_name_),
       img_scale(img_scale_)
     {
       cerr<<"Initializing Feature BOW with detectors:";
@@ -184,10 +191,19 @@ namespace rost{
       if(feature_descriptor_name=="SURF"){
 	cerr<<"Using SURF descriptor"<<endl;
 	desc_matcher = cv::DescriptorMatcher::create("FlannBased");
+	//	desc_matcher = cv::Ptr<cv::FlannBasedMatcher>(new cv::FlannBasedMatcher());
+	flann_matcher = cv::Ptr<FlannMatcher>(new L2FlannMatcher<float>());
       }
       else{
 	cerr<<"Using ORB descriptor"<<endl;
 	desc_matcher = cv::DescriptorMatcher::create("BruteForce-Hamming");
+	flann_matcher = cv::Ptr<FlannMatcher>(new BinaryFlannMatcher());
+	//desc_matcher = cv::Ptr<cv::FlannBasedMatcher>(new cv::BinaryFlannBasedMatcher());
+	//desc_matcher = new cv::BinaryFlannBasedMatcher();
+
+	//desc_matcher = cv::Ptr<cv::DescriptorMatcher>(new cv::FlannBasedMatcher(new cv::flann::LshIndexParams(12,20,2)));
+	//desc_matcher = new FlannBasedMatcher(new flann::LshIndexParams(20,10,2));
+
       }
 
       ROS_INFO("Opening vocabulary file: %s",vocabulary_filename.c_str());
@@ -202,6 +218,16 @@ namespace rost{
 	ROS_ERROR("ERROR opening file: %s\n",vocabulary_filename.c_str());
 	exit(0);
       }
+      vector<cv::Mat> vocab_vector;
+      for(int i=0;i<vocabulary.rows; ++i){
+	vocab_vector.push_back(vocabulary.row(i));
+      }
+      desc_matcher->add(vocab_vector);
+
+      //      if(feature_descriptor_name=="ORB"){
+      flann_matcher->set_vocabulary(vocabulary);
+	//      }
+
     }
   
     WordObservation::Ptr operator()(cv::Mat& img, unsigned image_seq, const vector<int>& pose){
@@ -216,16 +242,21 @@ namespace rost{
       z->vocabulary_size=vocabulary_size;
 
       get_keypoints(img, feature_detector_names, feature_detectors, keypoints);
-      //      feature_detector->detect(img, keypoints); 
       if(keypoints.size()>0){
-	vector<cv::DMatch> matches;
 	desc_extractor->compute(img,keypoints,descriptors);
-	desc_matcher->match(descriptors,vocabulary,matches);	
-	assert(matches.size()==(size_t)descriptors.rows);
-	z->words.resize(matches.size());
-	for(size_t i=0;i<matches.size(); ++i){
-	  z->words[matches[i].queryIdx] = matches[i].trainIdx;
-	}
+
+	//if(feature_descriptor_name=="ORB"){
+	flann_matcher->get_words(descriptors, z->words);
+	//	}
+	//	else{
+	/*vector<cv::DMatch> matches;
+	  desc_matcher->match(descriptors,matches);	
+	  assert(matches.size()==(size_t)descriptors.rows);
+	  z->words.resize(matches.size());
+	  for(size_t i=0;i<matches.size(); ++i){
+	    z->words[matches[i].queryIdx] = matches[i].trainIdx;
+	    }*/
+	  //	}
       }
 
       z->word_pose.resize(keypoints.size()*2);//x,y
