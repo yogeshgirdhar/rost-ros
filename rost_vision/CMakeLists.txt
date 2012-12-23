@@ -16,18 +16,16 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 rosbuild_init()
 
 
-#include(ExternalProject)
-#set(FLANN_PREFIX "${PROJECT_SOURCE_DIR}/ext/flann")
+include(ExternalProject)
 
-#set(FLANN_INSTALL_DIR "${PROJECT_SOURCE_DIR}/ext")
-#set(FLANN_CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${FLANN_INSTALL_DIR})
+set(EXT_PREFIX "${PROJECT_SOURCE_DIR}/ext")
+set(FLANN_CMAKE_ARGS -DBUILD_MATLAB_BINDINGS=OFF -DBUILD_PYTHON_BINDINGS=OFF -DBUILD_CUDA_LIB=OFF -DBUILD_C_BINDINGS=OFF -DCMAKE_INSTALL_PREFIX=${EXT_PREFIX})
 
-#ExternalProject_Add(sfml
-#  PREFIX ${sfml_PREFIX}
-#  GIT_REPOSITORY https://github.com/LaurentGomila/SFML.git
-#  INSTALL_DIR ${sfml_INSTALL_DIR}
-#  CMAKE_ARGS ${sfml_CMAKE_ARGS}
-#)
+ExternalProject_Add(FLANN_EXT
+  PREFIX ${EXT_PREFIX}
+  URL ${CMAKE_CURRENT_SOURCE_DIR}/ext/flann.tar.gz
+  CMAKE_ARGS ${FLANN_CMAKE_ARGS}
+)
 
 
 
