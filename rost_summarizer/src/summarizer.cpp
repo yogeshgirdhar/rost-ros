@@ -16,6 +16,7 @@ using namespace std;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
+ros::NodeHandle *nhp;
 typedef Summary<> SummaryT;
 SummaryT *summary;
 ros::Publisher summary_pub, summary_observations_pub; 
@@ -37,7 +38,11 @@ void update_summary_topics(){
   rost_common::GetTopicsForTime srv;
   srv.request.seq=id;
   if(! topics_client.call(srv)){
-    ROS_ERROR("Failed to call get_topics_for_time service");
+    ROS_ERROR("Failed to call get_topics_for_time service.");
+    topics_client =  nhp->serviceClient<rost_common::GetTopicsForTime>("/rost/get_topics_for_time", true);
+    ROS_INFO("Waiting to reistablish connection.");
+    topics_client.waitForExistence();
+    ROS_INFO("Conneciton reistablished.");
   }
   else{
     summary->remove(id);
@@ -95,6 +100,7 @@ void words_callback(rost_common::WordObservation::Ptr  msg){
 int main(int argc, char**argv){
   ros::init(argc, argv, "summarizer");
   ros::NodeHandle nh("~");
+  nhp = &nh;
   string thresholding;
   nh.param<int>("S", S, 9); //size of the summary
   nh.param<double>("alpha", alpha,1.0); //histogram smoothness
