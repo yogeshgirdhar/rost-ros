@@ -72,7 +72,7 @@
 
 
 <arg name="topics.enable" default="true"/>
-<arg name="K" default="16"/>
+<arg name="K" default="64"/>
 <arg name="V" value="5500" if="$(arg bow.use_orb_descriptor)"/>
 <arg name="V" value="1500" unless="$(arg bow.use_orb_descriptor)"/>
 <arg name="alpha" default="0.1"/>

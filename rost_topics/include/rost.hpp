@@ -13,6 +13,7 @@
 #include <thread>
 #include <iterator>
 #include <atomic>
+#include <condition_variable>
 
 #include "rost/refinery.hpp"
 #include "rost/word_reader.hpp"
@@ -150,6 +151,10 @@ struct hash_container<int>{
 };
 */
 
+
+/// All observed data is stored in Cell structs. Each cell contains
+/// all observed word and their topic labels that have the same saptiotemporal
+/// location. A Cell knows of other cells in its spatiotemporal neighborhood
 struct Cell{
   size_t id;
   vector<size_t> neighbors;
@@ -226,6 +231,12 @@ struct ROST{
   vector<int> weight_Z;
   vector<mutex> global_Z_mutex;
   atomic<size_t> refine_count; //number of cells refined till now;
+  atomic<size_t> activity; //number of threads actively using the topic model
+
+  //variables to handle pause/unpausing the system
+  bool is_paused; //pause the topic model
+  condition_variable pause_condition;
+  mutex pause_mutex;
 
   ROST(size_t V_, size_t K_, double alpha_, double beta_, const PoseNeighborsT& neighbors_ = PoseNeighborsT(), const PoseHashT& pose_hash_ = PoseHashT()):
     neighbors(neighbors_),
@@ -237,8 +248,36 @@ struct ROST{
     nZW(K,vector<int>(V,0)),
     weight_Z(K,0),
     global_Z_mutex(K),
-    refine_count(0)
+    refine_count(0),
+    is_paused(false)
   {
+  }
+    
+  //pauses the refinement adding new data
+  void pause(bool p){
+
+    cerr<<"Setting pause="<<p<<endl;
+    {
+      lock_guard<mutex> lock(pause_mutex);
+      is_paused = p;
+    }
+    cerr<<"Notifying all"<<endl;
+    pause_condition.notify_all();
+    cerr<<"Notification sent"<<endl;
+  }
+
+  void wait_till_unpaused(){
+    if(!is_paused) return;
+    unique_lock<mutex> lock(pause_mutex);
+    //wait till pause_condition receives a notification
+    //bool & p = is_paused;
+    //pause_condition.wait(lock, [&p](){return ! p;})
+    while(is_paused){
+      cerr<<"Waiting to unpause"<<endl;
+      pause_condition.wait(lock);
+      cerr<<"maybe unpaused"<<endl;
+    }
+    cerr<<"Unpaused"<<endl;
   }
 
   decltype(weight_Z) get_topic_weights(){
@@ -385,6 +424,7 @@ struct ROST{
 
 
   void refine(Cell& c){
+    wait_till_unpaused();
     if(c.id >=C)
       return;
     refine_count++;
@@ -423,6 +463,7 @@ struct ROST{
 
   //estimate maximum likelihood topics for the cell
   vector<int> estimate(Cell& c, bool update_ppx=false){
+    wait_till_unpaused();
     if(c.id >=C)
       return vector<int>();
 
