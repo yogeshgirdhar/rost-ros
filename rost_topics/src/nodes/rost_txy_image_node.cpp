@@ -6,6 +6,7 @@
 #include <rost_common/GetModelPerplexity.h>
 #include <rost_common/GetTopicModel.h>
 #include <rost_common/TopicWeights.h>
+#include <rost_common/Pause.h>
 #include <std_srvs/Empty.h>
 #include "rost.hpp"
 
@@ -92,6 +93,14 @@ bool get_topic_model(rost_common::GetTopicModel::Request& request, rost_common::
   for(auto& topic : topic_model){
     it = copy(topic.begin(), topic.end(), it);
   }
+  return true;
+}
+
+//service callback:
+//returns the current topic model, a flattened KxV matrix
+bool pause(rost_common::Pause::Request& request, rost_common::Pause::Response& response){
+  ROS_INFO("pause service called");
+  rost->pause(request.pause);
   return true;
 }
 
@@ -214,6 +223,8 @@ int main(int argc, char**argv){
   ros::ServiceServer reshuffle_topics_service = nh->advertiseService("reshuffle_topics", reshuffle_topics);
   ros::ServiceServer get_topic_model_service = nh->advertiseService("get_topic_model", get_topic_model);
   //ros::ServiceServer get_topic_model_service = nh->advertiseService("get_topic_model", get_topic_model);
+  ros::ServiceServer pause_service = nh->advertiseService("pause", pause);
+
 
   pose_t G{{G_time, G_space, G_space}};
   rost = new ROST_t (V, K, k_alpha, k_beta, G);
@@ -229,9 +240,11 @@ int main(int argc, char**argv){
     atomic<bool> stop;   stop.store(false);
     //    auto workers =  parallel_refine_online(rost, k_tau, num_threads, &stop);
     auto workers =  parallel_refine_online2(rost, k_tau,  p_refine_last_observation, observation_size, num_threads, &stop);
-    
+
+    ros::MultiThreadedSpinner spinner(2);
     cerr<<"Spinning..."<<endl;
-    ros::spin();
+    //ros::spin();
+    spinner.spin();
     stop.store(true);  //signal workers to stop
     for(auto t:workers){  //wait for them to stop
       t->join();
