@@ -97,6 +97,15 @@ bool get_topic_model(rost_common::GetTopicModel::Request& request, rost_common::
 }
 
 //service callback:
+//returns the current observed data model, a flattened TxK matrix
+//bool get_data_model(rost_common::GetDataModel::Request& request, rost_common::GetDataModel::Response& response){
+//  response.observations.resize(K*T);
+//  response.T=0;
+//  response.K=K;
+//  return true;
+//}
+
+//service callback:
 //returns the current topic model, a flattened KxV matrix
 bool pause(rost_common::Pause::Request& request, rost_common::Pause::Response& response){
   ROS_INFO("pause service called");
@@ -222,6 +231,7 @@ int main(int argc, char**argv){
   ros::ServiceServer get_model_perplexity_service = nh->advertiseService("get_model_perplexity", get_model_perplexity);
   ros::ServiceServer reshuffle_topics_service = nh->advertiseService("reshuffle_topics", reshuffle_topics);
   ros::ServiceServer get_topic_model_service = nh->advertiseService("get_topic_model", get_topic_model);
+  //  ros::ServiceServer get_data_model_service = nh->advertiseService("get_data_model", get_data_model);
   //ros::ServiceServer get_topic_model_service = nh->advertiseService("get_topic_model", get_topic_model);
   ros::ServiceServer pause_service = nh->advertiseService("pause", pause);
 
