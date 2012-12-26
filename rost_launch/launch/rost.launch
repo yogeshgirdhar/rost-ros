@@ -35,6 +35,8 @@
   <param name="image" value="$(arg image)"/>
 </node>
 
+
+
 <arg name="bow.enable" default="true"/>
 <arg name="bow.use_orb_descriptor" default="true"/>
 <arg name="bow.scale" default="1"/>
@@ -42,10 +44,18 @@
 <arg name="bow.hue" default="true"/>
 <arg name="bow.intensity" default="false"/>
 <arg name="bow.color_cell_size" default="32"/>
+
 <arg name="bow.orb" default="true"/>
+<arg name="bow.num_orb" default="1000"/>
+
+<arg name="bow.aqua_orb" default="false"/>
+<arg name="bow.num_aqua_orb" default="1000"/>
+
 <arg name="bow.surf" default="false"/>
+
 <arg name="bow.grid_orb" default="false"/>
 <arg name="bow.num_grid_orb" default="1000"/>
+
 <arg name="bow.lbp" default="false"/>
 <arg name="bow.num_lbp" default="1000"/>
 <arg name="bow.dense" default="false"/>
@@ -61,6 +71,9 @@
   <param name="use_intensity" value="$(arg bow.intensity)"/>
   <param name="color_cell_size" value="$(arg bow.color_cell_size)"/>
   <param name="use_orb" value="$(arg bow.orb)"/>
+  <param name="num_orb" value="$(arg bow.num_orb)"/>
+  <param name="use_aqua_orb" value="$(arg bow.aqua_orb)"/>
+  <param name="num_aqua_orb" value="$(arg bow.num_aqua_orb)"/>
   <param name="use_surf" value="$(arg bow.surf)"/>
   <param name="use_grid_orb" value="$(arg bow.grid_orb)"/>
   <param name="num_grid_orb" value="$(arg bow.num_grid_orb)"/>

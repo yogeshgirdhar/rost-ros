@@ -82,6 +82,20 @@ static cv::Ptr<cv::FeatureDetector> get_feature_detector(const string& name, int
   else if(name=="Dense"){
     fd = cv::Ptr<cv::FeatureDetector>(new cv::DenseFeatureDetector(32, 1, 0.1, 16, 32));
   }
+  //ORB optimized for use in Aqua
+  else if(name=="AquaORB"){
+    cerr<<"AQUAAAA ORBBBB"<<endl;
+    fd = cv::Ptr<cv::FeatureDetector>(new cv::OrbFeatureDetector(num_features,
+								 1.2, //scale factor
+								 12, //nLevels
+								 7, //edgeThreshold
+								 0, //firstLevel (always 0)
+								 2, //always 2,
+								 //cv::ORB::HARRIS_SCORE,	
+								 cv::ORB::FAST_SCORE,	
+								 15  //patch size
+								 ));
+  }
   else 
     fd = cv::FeatureDetector::create(name);
   return fd;
