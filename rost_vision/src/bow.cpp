@@ -311,8 +311,8 @@ int main(int argc, char**argv){
   ros::NodeHandle nhp("~");
   //ros::NodeHandle nh;
   std::string vocabulary_filename, image_topic_name, feature_descriptor_name;
-  int num_surf, num_orb, num_grid_orb, num_lbp, num_dense, color_cell_size;
-  bool use_surf, use_hue, use_intensity, use_orb, use_grid_orb, use_lbp, use_dense;
+  int num_surf, num_orb, num_aqua_orb, num_grid_orb, num_lbp, num_dense, color_cell_size;
+  bool use_surf, use_hue, use_intensity, use_orb, use_aqua_orb, use_grid_orb, use_lbp, use_dense;
   cerr<<"namespace:"<<nhp.getNamespace()<<endl;
 
   double rate; //looping rate
@@ -323,8 +323,12 @@ int main(int argc, char**argv){
   nhp.param<bool>("use_orb",use_orb, true);
   nhp.param<int>("num_orb",num_orb, 1000);
 
+  nhp.param<bool>("use_aqua_orb",use_aqua_orb, false);
+  nhp.param<int>("num_aqua_orb",num_aqua_orb, 1000);
+
   nhp.param<bool>("use_grid_orb",use_grid_orb, false);
   nhp.param<int>("num_grid_orb",num_grid_orb, 1000);
+
 
   nhp.param<bool>("use_hue",use_hue, true);
   nhp.param<bool>("use_intensity",use_intensity, false);
@@ -364,9 +368,15 @@ int main(int argc, char**argv){
     feature_detector_names.push_back("SURF");
     feature_sizes.push_back(num_surf);
   }
-  if(use_orb){
-    feature_detector_names.push_back("ORB");
-    feature_sizes.push_back(num_orb);
+  if(use_orb || use_aqua_orb){
+    if(use_aqua_orb){ //aqua optimized orb features
+      feature_detector_names.push_back("AquaORB");
+      feature_sizes.push_back(num_aqua_orb);
+    }
+    else{
+      feature_detector_names.push_back("ORB");
+      feature_sizes.push_back(num_orb);
+    }
   }
   if(use_grid_orb){
     feature_detector_names.push_back("Grid3ORB");
