@@ -107,7 +107,7 @@ bool get_topic_model(rost_common::GetTopicModel::Request& request, rost_common::
 //returns the current observed data model, a flattened TxK matrix
 bool save_observation_model(rost_common::SaveObservationModel::Request& request, rost_common::SaveObservationModel::Response& response){
 
-  ROS_INFO("SaveObservationModel: Computing maximum likelihood topic estimate for all %d observations.", observation_times.size());
+  ROS_INFO("SaveObservationModel: Computing maximum likelihood topic estimate for all %d observations.", static_cast<int>(observation_times.size()));
   YAML::Emitter out;
   out << YAML::BeginMap
       << YAML::Key << "K" << YAML::Value << K

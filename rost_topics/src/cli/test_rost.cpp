@@ -7,6 +7,12 @@
 using namespace std;
 
 typedef array<int,3> Pose;
+ostream& operator<<(ostream& out, const array<int,3>& v){
+  for(auto a : v){
+    out<<a<<" ";
+  }  
+  return out;
+}
 
 int main(){
   Pose a = {0,0,0};
