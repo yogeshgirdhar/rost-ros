@@ -32,7 +32,7 @@ double k_alpha, k_beta, k_gamma, k_tau, p_refine_last_observation;
 int G_time, G_space, num_threads, observation_size;
 ros::Publisher topics_pub, perplexity_pub, topic_weights_pub; 
 ros::Subscriber word_sub;
-ros::NodeHandle *nh;
+ros::NodeHandle *nh, *nhp;
 
 //service callback:
 //refine topics for given number of cells
@@ -259,7 +259,7 @@ bool pause(rost_common::Pause::Request& request, rost_common::Pause::Response& r
   }
   else{
     ROS_INFO("started listening to words");
-    word_sub = nh->subscribe("/words", 10, words_callback);
+    word_sub = nh->subscribe("words", 10, words_callback);
   }
   rost->pause(request.pause);
   return true;
@@ -268,32 +268,33 @@ bool pause(rost_common::Pause::Request& request, rost_common::Pause::Response& r
 
 int main(int argc, char**argv){
   ros::init(argc, argv, "rost");
-  nh = new ros::NodeHandle("~");
+  nhp = new ros::NodeHandle("~");
+  nh = new ros::NodeHandle("");
 
   bool polled_refine;
-  nh->param<int>("K", K, 64); //number of topics
-  nh->param<int>("V", V,1500); //vocabulary size
+  nhp->param<int>("K", K, 64); //number of topics
+  nhp->param<int>("V", V,1500); //vocabulary size
   //  nh->param<int>("max_refines_per_iter", max_refines_per_iter,0); //vocabulary size 1000 + 16 + 18
-  nh->param<double>("alpha", k_alpha,0.1);
-  nh->param<double>("beta", k_beta,0.1);
-  nh->param<double>("gamma", k_gamma,0.0);
-  nh->param<double>("tau", k_tau,2.0);  //beta(1,tau) is used to pick cells for global refinement
-  nh->param<int>("observation_size", observation_size, 64);  //number of cells in an observation
-  nh->param<double>("p_refine_last_observation", p_refine_last_observation, 0.5);  //probability of refining last observation
-  nh->param<int>("num_threads", num_threads,2);  //beta(1,tau) is used to pick cells for refinement
-  nh->param<int>("cell_width", cell_width, 64);
-  nh->param<int>("G_time", G_time,4);
-  nh->param<int>("G_space", G_space,1);
-  nh->param<bool>("polled_refine", polled_refine,false);
+  nhp->param<double>("alpha", k_alpha,0.1);
+  nhp->param<double>("beta", k_beta,0.1);
+  nhp->param<double>("gamma", k_gamma,0.0);
+  nhp->param<double>("tau", k_tau,2.0);  //beta(1,tau) is used to pick cells for global refinement
+  nhp->param<int>("observation_size", observation_size, 64);  //number of cells in an observation
+  nhp->param<double>("p_refine_last_observation", p_refine_last_observation, 0.5);  //probability of refining last observation
+  nhp->param<int>("num_threads", num_threads,2);  //beta(1,tau) is used to pick cells for refinement
+  nhp->param<int>("cell_width", cell_width, 64);
+  nhp->param<int>("G_time", G_time,4);
+  nhp->param<int>("G_space", G_space,1);
+  nhp->param<bool>("polled_refine", polled_refine,false);
 
 
   ROS_INFO("Starting online topic modeling: K=%d, alpha=%f, beta=%f, gamma=%f tau=%f",K,k_alpha,k_beta,k_gamma,k_tau);
 
 
-  topics_pub = nh->advertise<rost_common::WordObservation>("/topics", 1);
-  perplexity_pub = nh->advertise<rost_common::Perplexity>("/perplexity", 1);
-  topic_weights_pub = nh->advertise<rost_common::TopicWeights>("/topic_weight", 1);
-  word_sub = nh->subscribe("/words", 10, words_callback);
+  topics_pub = nh->advertise<rost_common::WordObservation>("topics", 1);
+  perplexity_pub = nh->advertise<rost_common::Perplexity>("perplexity", 1);
+  topic_weights_pub = nh->advertise<rost_common::TopicWeights>("topic_weight", 1);
+  word_sub = nh->subscribe("words", 10, words_callback);
   ros::ServiceServer get_topics_for_time_service = nh->advertiseService("get_topics_for_time", get_topics_for_time);
   ros::ServiceServer refine_service = nh->advertiseService("refine", refine_topics);
   ros::ServiceServer get_model_perplexity_service = nh->advertiseService("get_model_perplexity", get_model_perplexity);

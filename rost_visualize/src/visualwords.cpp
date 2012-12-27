@@ -56,28 +56,29 @@ void local_surprise_callback(const rost_common::LocalSurprise::ConstPtr&  msg){
 
 int main(int argc, char**argv){
   ros::init(argc, argv, "viewer");
-  ros::NodeHandle *nh = new ros::NodeHandle("~");
+  ros::NodeHandle *nhp = new ros::NodeHandle("~");
+  ros::NodeHandle *nh = new ros::NodeHandle("");
 
   bool show_topics, show_local_surprise, show_perplexity;
   string image_topic_name;
-  nh->param<bool>("topics", show_topics, true);
-  nh->param<bool>("local_surprise", show_local_surprise, true);
-  nh->param<string>("image", image_topic_name, "/image");
-  nh->param<bool>("perplexity", show_perplexity, true);
+  nhp->param<bool>("topics", show_topics, true);
+  nhp->param<bool>("local_surprise", show_local_surprise, true);
+  nhp->param<string>("image", image_topic_name, "/image");
+  nhp->param<bool>("perplexity", show_perplexity, true);
 
   ROS_INFO("reading images from: %s", image_topic_name.c_str());
   image_transport::ImageTransport it(*nh);
   image_transport::Subscriber image_sub = it.subscribe(image_topic_name, 1, image_callback);
-  ros::Subscriber word_sub = nh->subscribe("/topics", 1, words_callback);
-  ros::Subscriber local_surprise_sub = nh->subscribe("/local_surprise", 1, local_surprise_callback);
+  ros::Subscriber word_sub = nh->subscribe("topics", 1, words_callback);
+  ros::Subscriber local_surprise_sub = nh->subscribe("local_surprise", 1, local_surprise_callback);
   ros::Subscriber perplexity_sub;
 
   if(show_topics)
-    word_sub = nh->subscribe("/topics", 1, words_callback);
+    word_sub = nh->subscribe("topics", 1, words_callback);
   if(show_local_surprise)
-    local_surprise_sub = nh->subscribe("/local_surprise", 1, local_surprise_callback);
+    local_surprise_sub = nh->subscribe("local_surprise", 1, local_surprise_callback);
   if(show_perplexity)
-    perplexity_sub = nh->subscribe("/perplexity", 1, perplexity_callback);
+    perplexity_sub = nh->subscribe("perplexity", 1, perplexity_callback);
 
   ros::spin();
 

@@ -16,7 +16,7 @@ using namespace std;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
-ros::NodeHandle *nhp;
+ros::NodeHandle *nhp, *nh;
 typedef Summary<> SummaryT;
 SummaryT *summary;
 ros::Publisher summary_pub, summary_observations_pub; 
@@ -39,7 +39,7 @@ void update_summary_topics(){
   srv.request.seq=id;
   if(! topics_client.call(srv)){
     ROS_ERROR("Failed to call get_topics_for_time service.");
-    topics_client =  nhp->serviceClient<rost_common::GetTopicsForTime>("/rost/get_topics_for_time", true);
+    topics_client =  nh->serviceClient<rost_common::GetTopicsForTime>("get_topics_for_time", true);
     ROS_INFO("Waiting to reistablish connection.");
     topics_client.waitForExistence();
     ROS_INFO("Conneciton reistablished.");
@@ -99,22 +99,23 @@ void words_callback(rost_common::WordObservation::Ptr  msg){
 
 int main(int argc, char**argv){
   ros::init(argc, argv, "summarizer");
-  ros::NodeHandle nh("~");
-  nhp = &nh;
+  nhp = new ros::NodeHandle ("~");
+  nh = new ros::NodeHandle ("");
+
   string thresholding;
-  nh.param<int>("S", S, 9); //size of the summary
-  nh.param<double>("alpha", alpha,1.0); //histogram smoothness
-  nh.param<string>("threshold", thresholding,"auto"); //2min, mean, doubling
-  nh.param<bool>("topics", observations_are_topics,false); //auto update topic labels
+  nhp->param<int>("S", S, 9); //size of the summary
+  nhp->param<double>("alpha", alpha,1.0); //histogram smoothness
+  nhp->param<string>("threshold", thresholding,"auto"); //2min, mean, doubling
+  nhp->param<bool>("topics", observations_are_topics,false); //auto update topic labels
 
   summary = new Summary<>(S,thresholding);
 
-  ros::Subscriber sub = nh.subscribe("/topics", 100, words_callback);
-  summary_pub = nh.advertise<rost_common::Summary>("/summary", 100);
-  summary_observations_pub = nh.advertise<rost_common::SummaryObservations>("/summary_observations", 100);
+  ros::Subscriber sub = nh->subscribe("topics", 100, words_callback);
+  summary_pub = nh->advertise<rost_common::Summary>("summary", 100);
+  summary_observations_pub = nh->advertise<rost_common::SummaryObservations>("summary_observations", 100);
 
   if(observations_are_topics){
-    topics_client =  nh.serviceClient<rost_common::GetTopicsForTime>("/rost/get_topics_for_time", true);
+    topics_client =  nh->serviceClient<rost_common::GetTopicsForTime>("get_topics_for_time", true);
     topics_client.waitForExistence();
   }
 

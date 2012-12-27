@@ -1,4 +1,6 @@
 <launch>
+<group ns="rost">
+
 <arg name="image" default="/image"/>
 <arg name="image.width" default="640"/>
 <arg name="image.height" default="480"/>
@@ -29,7 +31,7 @@
 </node>
 
 <arg name="curosity.vis.enable" default="true"/>
-<node pkg="rost_visualize" type="visualwords" name="vis_curosity" if="$(arg curosity.vis.enable)">
+<node pkg="rost_visualize" type="visualwords" name="visualize_curosity" if="$(arg curosity.vis.enable)">
   <param name="topics" value="false"/>	
   <param name="local_surprise" value="true"/>	
   <param name="image" value="$(arg image)"/>
@@ -135,7 +137,7 @@
 <node pkg="rosbag" type="record" name="record" args="--output-name=$(arg bag.prefix)$(arg bag.name).bag  $(arg bag.topics) --bz2" if="$(arg bag.enable)">
 </node>
 
-
+</group>
 
 <arg name="image_source.enable" default="true"/>
 
@@ -166,5 +168,6 @@
 	 <arg name="height"  value="$(arg image.height)"/>
 </include>
 </group>
+
 
 </launch>
