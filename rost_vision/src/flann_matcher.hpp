@@ -43,6 +43,7 @@ public:
   }
 
   void get_words(cv::Mat q, vector<int>& words){
+    assert(q.cols == data.cols);
     query = flann::Matrix<unsigned char>(q.data, q.rows, q.cols, q.step[0]);
     vector<DistanceType> dists_vec(query.rows);
     dists = flann::Matrix<DistanceType>(&(dists_vec[0]), query.rows, 1);
