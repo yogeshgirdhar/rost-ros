@@ -70,6 +70,8 @@ endif()
 #  endif()
 #endif()
 
+
+
 if(BUILD_CLI_TOOLS)
   set(Boost_USE_STATIC_LIBS   ON)
   find_package(Boost COMPONENTS program_options)
@@ -88,6 +90,11 @@ endif()
 
 
 if(BUILD_ROS_NODES)
+  include($ENV{ROS_ROOT}/core/rosbuild/FindPkgConfig.cmake)
+  pkg_check_modules(YAML_CPP REQUIRED "yaml-cpp")
+  include_directories(${YAML_CPP_INCLUDE_DIRS})
+  link_directories(${YAML_CPP_LIBRARY_DIRS})
   rosbuild_add_executable(rost_1d_node src/nodes/rost_1d_node.cpp)
   rosbuild_add_executable(rost_txy_image_node src/nodes/rost_txy_image_node.cpp)
+  target_link_libraries(rost_txy_image_node ${YAML_CPP_LIBRARIES})
 endif()

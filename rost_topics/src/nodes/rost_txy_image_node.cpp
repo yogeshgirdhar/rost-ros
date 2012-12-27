@@ -5,9 +5,14 @@
 #include <rost_common/Perplexity.h>
 #include <rost_common/GetModelPerplexity.h>
 #include <rost_common/GetTopicModel.h>
+#include <rost_common/SaveObservationModel.h>
 #include <rost_common/TopicWeights.h>
 #include <rost_common/Pause.h>
 #include <std_srvs/Empty.h>
+
+#include <yaml-cpp/yaml.h>
+
+#include <fstream>
 #include "rost.hpp"
 
 using namespace std;
@@ -20,12 +25,14 @@ size_t last_refine_count;
 
 map<int, set<pose_t>> cellposes_for_time;  //list of all poses observed at a given time
 map<pose_t, vector<int>> worddata_for_pose;  //stores [pose]-> {x_i,y_i,scale_i,.....} for the current time
+vector<int> observation_times; //list of all time seq ids observed thus far.
 
 int K, V, cell_width; //number of topic types, number of word types
 double k_alpha, k_beta, k_gamma, k_tau, p_refine_last_observation;
 int G_time, G_space, num_threads, observation_size;
 ros::Publisher topics_pub, perplexity_pub, topic_weights_pub; 
-
+ros::Subscriber word_sub;
+ros::NodeHandle *nh;
 
 //service callback:
 //refine topics for given number of cells
@@ -98,20 +105,57 @@ bool get_topic_model(rost_common::GetTopicModel::Request& request, rost_common::
 
 //service callback:
 //returns the current observed data model, a flattened TxK matrix
-//bool get_data_model(rost_common::GetDataModel::Request& request, rost_common::GetDataModel::Response& response){
-//  response.observations.resize(K*T);
-//  response.T=0;
-//  response.K=K;
-//  return true;
-//}
+bool save_observation_model(rost_common::SaveObservationModel::Request& request, rost_common::SaveObservationModel::Response& response){
 
-//service callback:
-//returns the current topic model, a flattened KxV matrix
-bool pause(rost_common::Pause::Request& request, rost_common::Pause::Response& response){
-  ROS_INFO("pause service called");
-  rost->pause(request.pause);
+  ROS_INFO("SaveObservationModel: Computing maximum likelihood topic estimate for all %d observations.", observation_times.size());
+  YAML::Emitter out;
+  out << YAML::BeginMap
+      << YAML::Key << "K" << YAML::Value << K
+      << YAML::Key << "V" << YAML::Value << V
+      << YAML::Key << "T" << YAML::Value << observation_times.size()
+      << YAML::Key << "alpha" << YAML::Value << k_alpha
+      << YAML::Key << "beta"  << YAML::Value << k_beta
+      << YAML::Key << "gamma"  << YAML::Value << k_gamma
+      << YAML::Key << "tau"  << YAML::Value << k_tau
+      << YAML::Key << "G_time" << YAML::Value << G_time
+      << YAML::Key << "G_space" << YAML::Value << G_space
+      << YAML::Key << "p_refine_last_observation" << YAML::Value << p_refine_last_observation
+      << YAML::Key << "observation_size" << YAML::Value << observation_size
+      << YAML::Key << "refine_count" << YAML::Value<< rost->get_refine_count()
+      << YAML::Key << "observations" << YAML::Value;
+  out<<YAML::BeginSeq; //begin observations
+  for(size_t i=0;i<observation_times.size(); ++i){
+    out<<YAML::BeginMap //begin observation
+       <<YAML::Key << "seq" << YAML::Value << observation_times[i]
+       <<YAML::Key << "topics" <<YAML::Value;
+
+    set<pose_t>& poses = cellposes_for_time[observation_times[i]];
+    double perplexity=0;
+    vector<int> topics;
+    for(auto& pose : poses){
+      vector<int> pose_topics; double ppx=0;
+      tie(pose_topics,ppx) = rost->get_topics_and_ppx_for_pose(pose);
+      topics.insert(topics.end(), pose_topics.begin(), pose_topics.end());
+      perplexity+=ppx;
+    }
+    perplexity=exp(-perplexity/topics.size());    
+    out<<YAML::Flow<<topics
+       <<YAML::Key << "perplexity" << YAML::Value << perplexity;
+    
+    out<<YAML::EndMap;//end observation
+  }  
+  
+  out<<YAML::EndSeq; //end observations
+  out<<YAML::EndMap;//end
+
+  ROS_INFO("SaveObservationModel: writing to model to %s",request.filename.c_str());
+  ofstream outf(request.filename.c_str());
+  outf<<out.c_str();
+  outf.close();
+  
   return true;
 }
+
 
 //service callback:
 //returns the current topic model, a flattened KxV matrix
@@ -170,6 +214,13 @@ void broadcast_topics(int time, const W& worddata_for_poses){
 void words_callback(const rost_common::WordObservation::ConstPtr&  words){
   //cerr<<"Got words: "<<words->source<<"  #"<<words->words.size()<<endl;
   int observation_time = words->observation_pose[0];
+  //update the  list of observed time step ids
+  if(observation_times.empty() || observation_times.back() < observation_time){
+    observation_times.push_back(observation_time);
+  }
+
+  //if we are receiving observations from the next time step, then spit out
+  //topics for the last time step.
   if(last_time>=0 && (last_time != observation_time)){
     broadcast_topics(last_time, worddata_for_pose);
     size_t refine_count = rost->get_refine_count();
@@ -195,12 +246,29 @@ void words_callback(const rost_common::WordObservation::ConstPtr&  words){
     cellposes_for_time[words->seq].insert(p.first);
   }
   last_time = observation_time;
+
+}
+
+//service callback:
+//returns the current topic model, a flattened KxV matrix
+bool pause(rost_common::Pause::Request& request, rost_common::Pause::Response& response){
+  ROS_INFO("pause service called");
+  if(request.pause){
+    ROS_INFO("stopped listening to words");
+    word_sub.shutdown();
+  }
+  else{
+    ROS_INFO("started listening to words");
+    word_sub = nh->subscribe("/words", 10, words_callback);
+  }
+  rost->pause(request.pause);
+  return true;
 }
 
 
 int main(int argc, char**argv){
   ros::init(argc, argv, "rost");
-  ros::NodeHandle *nh = new ros::NodeHandle("~");
+  nh = new ros::NodeHandle("~");
 
   bool polled_refine;
   nh->param<int>("K", K, 64); //number of topics
@@ -225,13 +293,13 @@ int main(int argc, char**argv){
   topics_pub = nh->advertise<rost_common::WordObservation>("/topics", 1);
   perplexity_pub = nh->advertise<rost_common::Perplexity>("/perplexity", 1);
   topic_weights_pub = nh->advertise<rost_common::TopicWeights>("/topic_weight", 1);
-  ros::Subscriber sub = nh->subscribe("/words", 100, words_callback);
+  word_sub = nh->subscribe("/words", 10, words_callback);
   ros::ServiceServer get_topics_for_time_service = nh->advertiseService("get_topics_for_time", get_topics_for_time);
   ros::ServiceServer refine_service = nh->advertiseService("refine", refine_topics);
   ros::ServiceServer get_model_perplexity_service = nh->advertiseService("get_model_perplexity", get_model_perplexity);
   ros::ServiceServer reshuffle_topics_service = nh->advertiseService("reshuffle_topics", reshuffle_topics);
   ros::ServiceServer get_topic_model_service = nh->advertiseService("get_topic_model", get_topic_model);
-  //  ros::ServiceServer get_data_model_service = nh->advertiseService("get_data_model", get_data_model);
+  ros::ServiceServer save_observation_model_service = nh->advertiseService("save_observation_model", save_observation_model);
   //ros::ServiceServer get_topic_model_service = nh->advertiseService("get_topic_model", get_topic_model);
   ros::ServiceServer pause_service = nh->advertiseService("pause", pause);
 
