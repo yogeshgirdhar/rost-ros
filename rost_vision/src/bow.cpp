@@ -242,22 +242,8 @@ namespace rost{
       z->vocabulary_size=vocabulary_size;
 
       get_keypoints(img, feature_detector_names, feature_detectors, keypoints);
-      if(keypoints.size()>0){
-	desc_extractor->compute(img,keypoints,descriptors);
-
-	//if(feature_descriptor_name=="ORB"){
-	flann_matcher->get_words(descriptors, z->words);
-	//	}
-	//	else{
-	/*vector<cv::DMatch> matches;
-	  desc_matcher->match(descriptors,matches);	
-	  assert(matches.size()==(size_t)descriptors.rows);
-	  z->words.resize(matches.size());
-	  for(size_t i=0;i<matches.size(); ++i){
-	    z->words[matches[i].queryIdx] = matches[i].trainIdx;
-	    }*/
-	  //	}
-      }
+      if(keypoints.size()>0) desc_extractor->compute(img,keypoints,descriptors);
+      if(keypoints.size()>0) flann_matcher->get_words(descriptors, z->words);
 
       z->word_pose.resize(keypoints.size()*2);//x,y
       z->word_scale.resize(keypoints.size());//x,y
