@@ -20,33 +20,6 @@
 using namespace std;
 
 
-typedef array<int,6> Pose6i;
-typedef array<int,3> Pose3i;
-typedef array<int,1> Posei;
-
-
-ostream& operator<<(ostream& out, const array<int,3>& v){
-  for(auto a : v){
-    out<<a<<" ";
-  }  
-  return out;
-}
-ostream& operator<<(ostream& out, const array<int,6>& v){
-  for(auto a : v){
-    out<<a<<" ";
-  }  
-  return out;
-}
-
-
-/*ostream& operator<<(ostream& out, const Pose6i& v){
-  for(auto a : v){
-    out<<a<<" ";
-  }  
-  return out;
-  }*/
-
-
 //maps the v to [-N,N)
 template<typename T>
 T standardize_angle( T v, T N=180){  
@@ -69,12 +42,6 @@ template<>
 int pose_distance<int>(const int& p1, const int& p2){
   return std::abs(p1-p2);
 }
-
-//neighbors functor returns the neighbors of the given pose 
-//template<typename T>
-//struct neighbors{
-//  vector<T> operator()(const T &o) const;
-//};
 
 //neighbors specialization for a pose of array type
 template<typename Array>
@@ -142,19 +109,9 @@ struct hash_container{
 };
 
 
-/*template<>
-struct hash_container<int>{
-  hash<int> hash1;
-  size_t operator()(int pose) const {
-  return hash1(pose);
-  }
-};
-*/
-
-
 /// All observed data is stored in Cell structs. Each cell contains
 /// all observed word and their topic labels that have the same saptiotemporal
-/// location. A Cell knows of other cells in its spatiotemporal neighborhood
+/// location. A Cell is connected to its spatiotemporal neighbors
 struct Cell{
   size_t id;
   vector<size_t> neighbors;
@@ -422,7 +379,10 @@ struct ROST{
     c->cell_mutex.unlock();
   }
 
-
+  /// This is where all the magic happens.
+  /// Refine the topic labels for Cell c, given the cells in its spatiotemporal neighborhood (nZg), and 
+  /// topic model nZW. A gibbs sampler is used to randomly sample new topic label for each word in the 
+  /// cell, given the priors.
   void refine(Cell& c){
     wait_till_unpaused();
     if(c.id >=C)
@@ -461,9 +421,14 @@ struct ROST{
     } 
   }
 
-  //estimate maximum likelihood topics for the cell
+  /// Estimate maximum likelihood topics for the cell
+  /// This function is similar to the refine(), except instead of randomly sampling from
+  /// the topic distribution for a word, we pick the most likely label.
+  /// We do not save this label, but return it. 
+  /// the topic labels from this function are useful when we actually need to use the topic
+  /// labels for some application.
   vector<int> estimate(Cell& c, bool update_ppx=false){
-    wait_till_unpaused();
+    //wait_till_unpaused();
     if(c.id >=C)
       return vector<int>();
 
