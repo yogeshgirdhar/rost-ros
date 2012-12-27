@@ -70,11 +70,12 @@ void topics_callback(rost_common::WordObservation::Ptr  msg){
 
 int main(int argc, char**argv){
   ros::init(argc, argv, "curosity");
-  ros::NodeHandle nh("~");
+  ros::NodeHandle nh("");
+  ros::NodeHandle nhp("~");
   string thresholding;
-  nh.param<int>("img_width", img_width, 640);
-  nh.param<int>("img_height", img_height, 480);
-  nh.param<int>("cell_size", cell_size, 64);
+  nhp.param<int>("img_width", img_width, 640);
+  nhp.param<int>("img_height", img_height, 480);
+  nhp.param<int>("cell_size", cell_size, 64);
   s_width=ceil(static_cast<float>(img_width)/cell_size);
   s_height=ceil(static_cast<float>(img_height)/cell_size);
   surprise_grid.resize(s_width*s_height,0);
@@ -88,10 +89,10 @@ int main(int argc, char**argv){
   }
   surprise_grid_radii.resize(surprise_grid.size(),cell_size/2);
 
-  ros::Subscriber sub_topics = nh.subscribe("/topics", 1, topics_callback);
-  ros::Subscriber sub_topics_weights = nh.subscribe("/topic_weight", 1, topic_weights_callback);
-  local_surprise_pub = nh.advertise<rost_common::LocalSurprise>("/local_surprise", 1);
-  local_surprise1d_pub = nh.advertise<rost_common::LocalSurprise1D>("/local_surprise_yaw", 1);
+  ros::Subscriber sub_topics = nh.subscribe("topics", 1, topics_callback);
+  ros::Subscriber sub_topics_weights = nh.subscribe("topic_weight", 1, topic_weights_callback);
+  local_surprise_pub = nh.advertise<rost_common::LocalSurprise>("local_surprise", 1);
+  local_surprise1d_pub = nh.advertise<rost_common::LocalSurprise1D>("local_surprise_yaw", 1);
   ros::spin();
   return 0;
 }

@@ -340,15 +340,16 @@ int main(int argc, char**argv){
 
 
   ros::init(argc, argv, "viewer");
-  ros::NodeHandle nh("~");
+  ros::NodeHandle nhp("~");
+  ros::NodeHandle nh("");
   std::string image_topic_name, video_out;
   bool bg_black;
-  nh.param<string>("image",image_topic_name, "/image");
-  nh.param<int>("width",window_w, 1024);
-  nh.param<int>("height",window_h, 768);
-  nh.param<string>("vout",video_out, "");
-  nh.param<bool>("black",bg_black, false);
-  nh.param<bool>("topics",topics_mode, true);
+  nhp.param<string>("image",image_topic_name, "/image");
+  nhp.param<int>("width",window_w, 1024);
+  nhp.param<int>("height",window_h, 768);
+  nhp.param<string>("vout",video_out, "");
+  nhp.param<bool>("black",bg_black, false);
+  nhp.param<bool>("topics",topics_mode, true);
   cerr<<"image source: "<<image_topic_name<<endl;
   //cv::namedWindow("live");
   //cv::namedWindow("topics");
@@ -369,11 +370,11 @@ int main(int argc, char**argv){
 
   image_transport::ImageTransport it(nh);
   image_transport::Subscriber sub = it.subscribe(image_topic_name, 60, image_callback);
-  ros::Subscriber topic_sub = nh.subscribe("/topics", 10, topics_callback);
-  ros::Subscriber word_sub = nh.subscribe("/words", 10, words_callback);
-  ros::Subscriber sum_sub = nh.subscribe("/summary", 60, summary_callback);
-  //  ros::Subscriber local_surp_sub = nh.subscribe("/summarizer/local_surprise", 10, local_surprise_callback);
-  ros::Subscriber sum_obz_sub = nh.subscribe("/summary_observations", 10, summary_observations_callback);
+  ros::Subscriber topic_sub = nh.subscribe("topics", 10, topics_callback);
+  ros::Subscriber word_sub = nh.subscribe("words", 10, words_callback);
+  ros::Subscriber sum_sub = nh.subscribe("summary", 60, summary_callback);
+  //  ros::Subscriber local_surp_sub = nh.subscribe("local_surprise", 10, local_surprise_callback);
+  ros::Subscriber sum_obz_sub = nh.subscribe("summary_observations", 10, summary_observations_callback);
 
   //  image_cache_client =  nh.serviceClient<rost_common::GetImage>("image_cache/get_image");
 

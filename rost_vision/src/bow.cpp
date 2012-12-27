@@ -295,6 +295,7 @@ int main(int argc, char**argv){
   
   ros::init(argc, argv, "bow");
   ros::NodeHandle nhp("~");
+  ros::NodeHandle nh("");
   //ros::NodeHandle nh;
   std::string vocabulary_filename, image_topic_name, feature_descriptor_name;
   int num_surf, num_orb, num_aqua_orb, num_grid_orb, num_lbp, num_dense, color_cell_size;
@@ -398,7 +399,7 @@ int main(int argc, char**argv){
 
   image_transport::ImageTransport it(nhp);
   image_transport::Subscriber sub = it.subscribe(image_topic_name, 1, rost::imageCallback);
-  rost::words_pub = nhp.advertise<rost_common::WordObservation>("/words", 1);
+  rost::words_pub = nh.advertise<rost_common::WordObservation>("words", 1);
 
   if(rate==0)
     ros::spin();
