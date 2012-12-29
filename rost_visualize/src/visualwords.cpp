@@ -12,7 +12,7 @@
 #include "draw_plot.hpp"
 using namespace std;
 namespace enc = sensor_msgs::image_encodings;
-map<unsigned, sensor_msgs::ImageConstPtr> image_cache;
+map<unsigned, cv::Mat> image_cache;
 
 ScorePlot perplexity_plot;
 void perplexity_callback(const rost_common::Perplexity::Ptr& msg){
@@ -22,34 +22,41 @@ void perplexity_callback(const rost_common::Perplexity::Ptr& msg){
 }
 
 void image_callback(const sensor_msgs::ImageConstPtr& msg){
-  image_cache[msg->header.seq]=msg;
+
+  cv_bridge::CvImagePtr cv_ptr;
+  try{
+    cv_ptr = cv_bridge::toCvCopy(msg, enc::BGR8);
+  }
+  catch (cv_bridge::Exception& e){
+    ROS_ERROR("cv_bridge exception: %s", e.what());
+  }
+
+  image_cache[msg->header.seq]=cv_ptr->image.clone();
   if(image_cache.size()>100)
     image_cache.erase(image_cache.begin());
 }
 
 void words_callback(const rost_common::WordObservation::ConstPtr&  z){
-  sensor_msgs::ImageConstPtr img_msg = image_cache[z->seq];
-  if(!img_msg) return;
-  cv_bridge::CvImagePtr cv_ptr;
-  cv_ptr = cv_bridge::toCvCopy(img_msg, enc::BGR8);
-  cv::Mat out_img = draw_keypoints(z, cv_ptr->image.clone());
+  cv::Mat img = image_cache[z->seq];
+  if(img.empty()) return;
+  cv::Mat out_img = draw_keypoints(z, img);
   cv::imshow(z->source, out_img);
   cv::waitKey(5);  
 }
 
 void local_surprise_callback(const rost_common::LocalSurprise::ConstPtr&  msg){
-  sensor_msgs::ImageConstPtr img_msg = image_cache[msg->seq];
-  if(!img_msg) return;
-  cv_bridge::CvImagePtr cv_ptr;
-  try{
-    cv_ptr = cv_bridge::toCvCopy(img_msg, enc::BGR8);
-  }
-  catch (cv_bridge::Exception& e){
-    ROS_ERROR("cv_bridge exception: %s", e.what());
-  }
-  cv::Mat img = cv_ptr->image.clone();
-  img = draw_local_surprise(msg,img);
-  cv::imshow("Look!", img);
+  cv::Mat img = image_cache[msg->seq];
+  if(img.empty()) return;
+  cv::Mat out_img = draw_local_surprise(msg,img);
+  cv::imshow("Look!", out_img);
+  cv::waitKey(5);  
+}
+
+void cell_ppx_callback(const rost_common::LocalSurprise::ConstPtr&  msg){
+  cv::Mat img = image_cache[msg->seq];
+  if(img.empty()) return;
+  cv::Mat out_img = draw_local_surprise(msg,img);
+  cv::imshow("cell perplexity", out_img);
   cv::waitKey(5);  
 }
 
@@ -71,6 +78,7 @@ int main(int argc, char**argv){
   image_transport::Subscriber image_sub = it.subscribe(image_topic_name, 1, image_callback);
   ros::Subscriber word_sub = nh->subscribe("topics", 1, words_callback);
   ros::Subscriber local_surprise_sub = nh->subscribe("local_surprise", 1, local_surprise_callback);
+  ros::Subscriber cell_ppx_sub = nh->subscribe("cell_perplexity", 1, cell_ppx_callback);
   ros::Subscriber perplexity_sub;
 
   if(show_topics)
