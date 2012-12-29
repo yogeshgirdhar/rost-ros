@@ -4,6 +4,7 @@
 #include <rost_common/RefineTopics.h>
 #include <rost_common/Perplexity.h>
 #include <rost_common/GetModelPerplexity.h>
+#include <rost_common/LocalSurprise.h>
 #include <rost_common/GetTopicModel.h>
 #include <rost_common/SaveObservationModel.h>
 #include <rost_common/TopicWeights.h>
@@ -30,7 +31,7 @@ vector<int> observation_times; //list of all time seq ids observed thus far.
 int K, V, cell_width; //number of topic types, number of word types
 double k_alpha, k_beta, k_gamma, k_tau, p_refine_last_observation;
 int G_time, G_space, num_threads, observation_size;
-ros::Publisher topics_pub, perplexity_pub, topic_weights_pub; 
+ros::Publisher topics_pub, perplexity_pub, cell_perplexity_pub, topic_weights_pub; 
 ros::Subscriber word_sub;
 ros::NodeHandle *nh, *nhp;
 
@@ -175,10 +176,20 @@ bool save_observation_model(rost_common::SaveObservationModel::Request& request,
 */
 template<typename W>
 void broadcast_topics(int time, const W& worddata_for_poses){
+
+  //if nobody is listening, then why speak?
+  if(topics_pub.getNumSubscribers()          == 0 &&
+     perplexity_pub.getNumSubscribers()      == 0 &&
+     topic_weights_pub.getNumSubscribers()   == 0 &&
+     cell_perplexity_pub.getNumSubscribers() == 0    ){  
+  return;
+  }
+
   //  cerr<<"Requesting topics for time: "<<time<<endl;
   rost_common::WordObservation::Ptr z(new rost_common::WordObservation);
   rost_common::Perplexity::Ptr msg_ppx(new rost_common::Perplexity);
   rost_common::TopicWeights::Ptr msg_topic_weights(new rost_common::TopicWeights);
+  rost_common::LocalSurprise::Ptr cell_perplexity(new rost_common::LocalSurprise);
   z->source="topics";
   z->vocabulary_begin = 0;
   z->vocabulary_size  = K;  
@@ -188,26 +199,45 @@ void broadcast_topics(int time, const W& worddata_for_poses){
   msg_ppx->seq = time;
   msg_topic_weights->seq=time;
   msg_topic_weights->weight=rost->get_topic_weights();
+  cell_perplexity->seq= time;
+  
 
   int n_words=0; double sum_log_p_word=0;
   for(auto& pose_data: worddata_for_pose){
-    vector<int> topics; double ppx;
-    tie(topics,ppx)=rost->get_topics_and_ppx_for_pose(pose_data.first);
+
+    const pose_t & pose = pose_data.first;
+    vector<int> topics;  //topic labels for each word in the cell
+    double log_likelihood; //cell's sum_w log(p(w | model) = log p(cell | model)
+    tie(topics,log_likelihood)=rost->get_topics_and_ppx_for_pose(pose_data.first);
+
+    //populate the topic label message
     z->words.insert(z->words.end(), topics.begin(), topics.end()); 
     vector<int>& word_data = pose_data.second;
     assert(topics.size()*3 == word_data.size()); //x,y,scale
     auto wi = word_data.begin();
     for(size_t i=0;i<topics.size(); ++i){
-      z->word_pose.push_back(*wi++);  z->word_pose.push_back(*wi++);  //x,y
-      z->word_scale.push_back(*wi++);  //scale
+      z->word_pose.push_back(*wi++);  //x
+      z->word_pose.push_back(*wi++);  //y
+      z->word_scale.push_back(*wi++);  //scale      
     }
     n_words+=topics.size();
-    sum_log_p_word+=ppx;
+    sum_log_p_word+=log_likelihood;
+
+    //populate the cell_perplexity message
+    cell_perplexity->centers.insert(cell_perplexity->centers.end(), 
+				    pose.begin()+1, pose.end()); // x,y only. no t
+    cell_perplexity->radii.push_back(cell_width/2);
+    cell_perplexity->surprise.push_back(-log_likelihood/topics.size());
   }
+  transform(cell_perplexity->centers.begin(), 
+	    cell_perplexity->centers.end(), 
+	    cell_perplexity->centers.begin(), 
+	    [](int x){return x*cell_width + cell_width/2;});
   msg_ppx->perplexity= exp(-sum_log_p_word/n_words);
   topics_pub.publish(z);
   perplexity_pub.publish(msg_ppx);
   topic_weights_pub.publish(msg_topic_weights);
+  cell_perplexity_pub.publish(cell_perplexity);
   //cerr<<"Publish topics for seq"<<z->seq<<": "<<z->words.size()<<endl;
 }
 
@@ -220,18 +250,17 @@ void words_callback(const rost_common::WordObservation::ConstPtr&  words){
   }
 
   //if we are receiving observations from the next time step, then spit out
-  //topics for the last time step.
+  //topics for the current time step.
   if(last_time>=0 && (last_time != observation_time)){
     broadcast_topics(last_time, worddata_for_pose);
     size_t refine_count = rost->get_refine_count();
-    ROS_INFO("#cells_refine: %u",static_cast<unsigned>(refine_count - last_refine_count));
-    //    cerr<<"#cells_refine: "<<refine_count - last_refine_count<<endl;  
+    ROS_INFO("#cells_refined: %u",static_cast<unsigned>(refine_count - last_refine_count));
     last_refine_count = refine_count;
     worddata_for_pose.clear();
   }
   vector<int> word_pose_cell(words->word_pose.size());
 
-  //split the words into different windows, each with its own pose (t,x,y)
+  //split the words into different cells, each with its own pose (t,x,y)
   map<pose_t, vector<int>> words_for_pose;
   for(size_t i=0;i<words->words.size(); ++i){
     pose_t pose {{observation_time, words->word_pose[2*i]/cell_width, words->word_pose[2*i+1]/cell_width}};
@@ -291,9 +320,10 @@ int main(int argc, char**argv){
   ROS_INFO("Starting online topic modeling: K=%d, alpha=%f, beta=%f, gamma=%f tau=%f",K,k_alpha,k_beta,k_gamma,k_tau);
 
 
-  topics_pub = nh->advertise<rost_common::WordObservation>("topics", 1);
-  perplexity_pub = nh->advertise<rost_common::Perplexity>("perplexity", 1);
-  topic_weights_pub = nh->advertise<rost_common::TopicWeights>("topic_weight", 1);
+  topics_pub = nh->advertise<rost_common::WordObservation>("topics", 10);
+  perplexity_pub = nh->advertise<rost_common::Perplexity>("perplexity", 10);
+  cell_perplexity_pub = nh->advertise<rost_common::LocalSurprise>("cell_perplexity", 10);
+  topic_weights_pub = nh->advertise<rost_common::TopicWeights>("topic_weight", 10);
   word_sub = nh->subscribe("words", 10, words_callback);
   ros::ServiceServer get_topics_for_time_service = nh->advertiseService("get_topics_for_time", get_topics_for_time);
   ros::ServiceServer refine_service = nh->advertiseService("refine", refine_topics);

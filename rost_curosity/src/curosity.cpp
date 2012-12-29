@@ -33,12 +33,13 @@ void topics_callback(rost_common::WordObservation::Ptr  msg){
   vector<float> current_sg(surprise_grid.size(),0);
   vector<int> sg_count(surprise_grid.size(),0);
 
+  float log_P_topic = log(1.0/msg->vocabulary_size);
   for(size_t i=0;i<msg->words.size(); ++i){
     int x = msg->word_pose[i*2]/cell_size;
     int y = msg->word_pose[i*2+1]/cell_size;
     int z = msg->words[i];
-    float surprise = 1.0/(static_cast<float>(topic_weights[z])+1);
-    current_sg[static_cast<size_t>(y*s_width + x)]+= surprise;
+    float P_topic_given_data = 1.0/(static_cast<float>(topic_weights[z])+1);
+    current_sg[static_cast<size_t>(y*s_width + x)]+= log(P_topic_given_data) - log_P_topic;
     sg_count[static_cast<size_t>(y*s_width + x)]++;
   }
 
