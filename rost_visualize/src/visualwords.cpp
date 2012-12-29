@@ -64,7 +64,7 @@ void cell_ppx_callback(const rost_common::LocalSurprise::ConstPtr&  msg){
 }
 
 void topic_weight_callback(const rost_common::TopicWeights::ConstPtr&  msg){
-  cv::Mat out_img = draw_log_barchart(msg->weight,640,240,cv::Scalar(255,255,255));
+  cv::Mat out_img = draw_barchart(msg->weight,640,240,cv::Scalar(255,255,255));
   cv::imshow("topic weights", out_img);
   cv::waitKey(5);  
 }

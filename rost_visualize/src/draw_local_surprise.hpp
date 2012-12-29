@@ -13,7 +13,7 @@ cv::Mat draw_local_surprise(const rost_common::LocalSurprise::ConstPtr&  z, cv::
   float max_surprise = z->surprise[max_i];
   float min_surprise = z->surprise[min_i];
   float delta = max_surprise - min_surprise;
-  cv::Mat img_surp(img.rows,img.cols,CV_8UC3);
+  cv::Mat img_surp(img.rows,img.cols,CV_8UC3,cv::Scalar(0,0,0));
 
   for(size_t i=0;i<z->surprise.size();++i){
     int x = z->centers[2*i];
