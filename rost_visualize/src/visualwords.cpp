@@ -2,6 +2,8 @@
 #include <rost_common/WordObservation.h>
 #include <rost_common/LocalSurprise.h>
 #include <rost_common/Perplexity.h>
+#include <rost_common/TopicWeights.h>
+
 #include <image_transport/image_transport.h>
 #include <opencv/cv.h>
 #include <opencv/highgui.h>
@@ -10,6 +12,7 @@
 #include "draw_keypoints.hpp"
 #include "draw_local_surprise.hpp"
 #include "draw_plot.hpp"
+#include "draw_topic_hist.hpp"
 using namespace std;
 namespace enc = sensor_msgs::image_encodings;
 map<unsigned, cv::Mat> image_cache;
@@ -60,6 +63,12 @@ void cell_ppx_callback(const rost_common::LocalSurprise::ConstPtr&  msg){
   cv::waitKey(5);  
 }
 
+void topic_weight_callback(const rost_common::TopicWeights::ConstPtr&  msg){
+  cv::Mat out_img = draw_log_barchart(msg->weight,640,240,cv::Scalar(255,255,255));
+  cv::imshow("topic weights", out_img);
+  cv::waitKey(5);  
+}
+
 
 int main(int argc, char**argv){
   ros::init(argc, argv, "viewer");
@@ -79,6 +88,7 @@ int main(int argc, char**argv){
   ros::Subscriber word_sub = nh->subscribe("topics", 1, words_callback);
   ros::Subscriber local_surprise_sub = nh->subscribe("local_surprise", 1, local_surprise_callback);
   ros::Subscriber cell_ppx_sub = nh->subscribe("cell_perplexity", 1, cell_ppx_callback);
+  ros::Subscriber topic_weight_sub = nh->subscribe("topic_weight", 1, topic_weight_callback);
   ros::Subscriber perplexity_sub;
 
   if(show_topics)
