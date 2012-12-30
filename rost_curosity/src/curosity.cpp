@@ -54,10 +54,12 @@ void topics_callback(rost_common::WordObservation::Ptr  msg){
   rost_common::LocalSurprise::Ptr local_surprise_msg(new rost_common::LocalSurprise);
 
   local_surprise_msg->seq = msg->seq;
-  local_surprise_msg->centers = surprise_grid_centers;
-  local_surprise_msg->radii = surprise_grid_radii;
+  //  local_surprise_msg->centers = surprise_grid_centers;
+  //  local_surprise_msg->radii = surprise_grid_radii;
   local_surprise_msg->surprise = surprise_grid;
-
+  local_surprise_msg->width = s_width;
+  local_surprise_msg->height = s_height;
+  local_surprise_msg->cell_width = cell_size;
   local_surprise_pub.publish(local_surprise_msg);
 
   rost_common::LocalSurprise1D::Ptr local_surprise1d_msg(new rost_common::LocalSurprise1D);

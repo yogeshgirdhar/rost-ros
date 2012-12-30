@@ -200,9 +200,21 @@ void broadcast_topics(int time, const W& worddata_for_poses){
   msg_topic_weights->seq=time;
   msg_topic_weights->weight=rost->get_topic_weights();
   cell_perplexity->seq= time;
-  
+  cell_perplexity->cell_width=cell_width;
+
 
   int n_words=0; double sum_log_p_word=0;
+
+  int max_x=0, max_y=0;
+  for(auto& pose_data: worddata_for_pose){
+    const pose_t & pose = pose_data.first;
+    max_x = max(pose[1],max_x);
+    max_y = max(pose[2],max_y);
+  }
+  cell_perplexity->surprise.resize((max_x+1)*(max_y+1),0);
+  cell_perplexity->width=max_x+1;
+  cell_perplexity->height=max_y+1;
+
   for(auto& pose_data: worddata_for_pose){
 
     const pose_t & pose = pose_data.first;
@@ -224,15 +236,17 @@ void broadcast_topics(int time, const W& worddata_for_poses){
     sum_log_p_word+=log_likelihood;
 
     //populate the cell_perplexity message
-    cell_perplexity->centers.insert(cell_perplexity->centers.end(), 
-				    pose.begin()+1, pose.end()); // x,y only. no t
-    cell_perplexity->radii.push_back(cell_width/2);
-    cell_perplexity->surprise.push_back(exp(-log_likelihood/topics.size()));
+    //cell_perplexity->centers.insert(cell_perplexity->centers.end(), 
+    //				    pose.begin()+1, pose.end()); // x,y only. no t
+  //cell_perplexity->radii.push_back(cell_width/2);
+    int idx = pose[2]*(max_x+1) + pose[1];
+    cell_perplexity->surprise[idx]=exp(-log_likelihood/topics.size());
   }
-  transform(cell_perplexity->centers.begin(), 
-	    cell_perplexity->centers.end(), 
-	    cell_perplexity->centers.begin(), 
-	    [](int x){return x*cell_width + cell_width/2;});
+
+  //  transform(cell_perplexity->centers.begin(), 
+  //	    cell_perplexity->centers.end(), 
+  //	    cell_perplexity->centers.begin(), 
+  //	    [](int x){return x*cell_width + cell_width/2;});
   msg_ppx->perplexity= exp(-sum_log_p_word/n_words);
   topics_pub.publish(z);
   perplexity_pub.publish(msg_ppx);
