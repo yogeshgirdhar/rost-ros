@@ -16,9 +16,9 @@ cv::Mat draw_local_surprise(const rost_common::LocalSurprise::ConstPtr&  z, cv::
   cv::Mat img_surp(img.rows,img.cols,CV_8UC3,cv::Scalar(0,0,0));
 
   for(size_t i=0;i<z->surprise.size();++i){
-    int x = z->centers[2*i];
-    int y = z->centers[2*i+1];
-    int r = z->radii[i];
+    int x = i%(z->width)*z->cell_width + z->cell_width/2;
+    int y = i/(z->width)*z->cell_width + z->cell_width/2;
+    int r = z->cell_width/2;
     float s = (z->surprise[i]-min_surprise)/delta;
     if(i == max_i)
       cv::circle(img_surp,cv::Point(x,y),r,cv::Scalar(0,0,255),-1);
