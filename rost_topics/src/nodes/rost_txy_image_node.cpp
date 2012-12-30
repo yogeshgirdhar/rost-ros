@@ -227,7 +227,7 @@ void broadcast_topics(int time, const W& worddata_for_poses){
     cell_perplexity->centers.insert(cell_perplexity->centers.end(), 
 				    pose.begin()+1, pose.end()); // x,y only. no t
     cell_perplexity->radii.push_back(cell_width/2);
-    cell_perplexity->surprise.push_back(-log_likelihood/topics.size());
+    cell_perplexity->surprise.push_back(exp(-log_likelihood/topics.size()));
   }
   transform(cell_perplexity->centers.begin(), 
 	    cell_perplexity->centers.end(), 
