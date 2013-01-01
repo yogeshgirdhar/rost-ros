@@ -1,6 +1,2 @@
-#topic_model.size() == K*V
-#k_1v_1,.....k_1v_V,....,k_Kv_1,...,k_Kv_V
-int32[] topic_model
-int32 K
-int32 V
+TopicModel topic_model
 ---
