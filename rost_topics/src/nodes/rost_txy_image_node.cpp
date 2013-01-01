@@ -6,6 +6,7 @@
 #include <rost_common/GetModelPerplexity.h>
 #include <rost_common/LocalSurprise.h>
 #include <rost_common/GetTopicModel.h>
+#include <rost_common/SetTopicModel.h>
 #include <rost_common/SaveObservationModel.h>
 #include <rost_common/TopicWeights.h>
 #include <rost_common/Pause.h>
@@ -35,8 +36,49 @@ ros::Publisher topics_pub, perplexity_pub, cell_perplexity_pub, topic_weights_pu
 ros::Subscriber word_sub;
 ros::NodeHandle *nh, *nhp;
 
-//service callback:
+
+//pause the topic model
+void pause(bool p);
+bool pause(rost_common::Pause::Request& request, rost_common::Pause::Response& response);
+
+//process incoming observation
+void words_callback(const rost_common::WordObservation::ConstPtr&  words);
+
+//publish topic labels for given time
+template<typename W>
+void broadcast_topics(int time, const W& worddata_for_poses);
+
+//returns the current observed data model, a flattened TxK matrix
+bool save_observation_model(rost_common::SaveObservationModel::Request& request, rost_common::SaveObservationModel::Response& response);
+
+//returns the current topic model, a flattened KxV matrix
+bool set_topic_model(rost_common::SetTopicModel::Request& request, rost_common::SetTopicModel::Response& response);
+
+//returns the current topic model, a flattened KxV matrix
+bool get_topic_model(rost_common::GetTopicModel::Request& request, rost_common::GetTopicModel::Response& response);
+
+
+//returns max likelihood topic label estimates for given pose, along with its perplexity
+bool get_topics_for_time(rost_common::GetTopicsForTime::Request& request, rost_common::GetTopicsForTime::Response& response);
+
+
+//reset topic labels to random labels
+bool reshuffle_topics(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response);
+
 //refine topics for given number of cells
+bool refine_topics(rost_common::RefineTopics::Request& request, rost_common::RefineTopics::Response& response);
+
+bool get_model_perplexity(rost_common::GetModelPerplexity::Request& request, rost_common::GetModelPerplexity::Response& response);
+
+
+
+
+
+
+
+
+
+//service callback:
 bool get_model_perplexity(rost_common::GetModelPerplexity::Request& request, rost_common::GetModelPerplexity::Response& response){
   ROS_INFO("Computing model perplexity");
   for(auto& time_poses : cellposes_for_time){
@@ -62,7 +104,7 @@ bool refine_topics(rost_common::RefineTopics::Request& request, rost_common::Ref
 }
 
 //service callback:
-//refine topics for given number of cells
+//reset topic labels to random labels
 bool reshuffle_topics(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response){
   ROS_INFO("Reshuffling topics");
   rost->shuffle_topics();
@@ -91,16 +133,40 @@ bool get_topics_for_time(rost_common::GetTopicsForTime::Request& request, rost_c
 //service callback:
 //returns the current topic model, a flattened KxV matrix
 bool get_topic_model(rost_common::GetTopicModel::Request& request, rost_common::GetTopicModel::Response& response){
-  response.topic_model.resize(K*V);
-  response.K=K;
-  response.V=V;
+
+  response.topic_model.K=K;
+  response.topic_model.V=V;
+  response.topic_model.alpha=k_alpha;
+  response.topic_model.beta=k_beta;
+
+  //populate the flattened phi matrix (topic-word distributions)
+  response.topic_model.phi.resize(K*V);
   auto topic_model = rost->get_topic_model(); //returns a [K][V] matrix
   assert(topic_model.size()==static_cast<size_t>(K));
   assert(topic_model[0].size()==static_cast<size_t>(V));
-  auto it = response.topic_model.begin();
+  auto it = response.topic_model.phi.begin();
   for(auto& topic : topic_model){
     it = copy(topic.begin(), topic.end(), it);
   }
+
+  //populate topic weights
+  response.topic_model.topic_weights = rost->get_topic_weights();
+  return true;
+}
+
+//service callback:
+//returns the current topic model, a flattened KxV matrix
+bool set_topic_model(rost_common::SetTopicModel::Request& request, rost_common::SetTopicModel::Response& response){
+
+  pause(true);
+  K = request.topic_model.K;
+  V = request.topic_model.V;
+  k_alpha = request.topic_model.alpha;
+  k_beta = request.topic_model.beta;
+
+  rost->set_topic_model(request.topic_model.phi, request.topic_model.topic_weights);
+
+  pause(false);
   return true;
 }
 
@@ -158,22 +224,7 @@ bool save_observation_model(rost_common::SaveObservationModel::Request& request,
 }
 
 
-//service callback:
-//returns the current topic model, a flattened KxV matrix
-/*bool set_topic_model(rost_common::GetTopicModel::Request& request, rost_common::GetTopicModel::Response& response){
-  response.topic_model.resize(K*V);
-  response.topic_model.K=K;
-  response.topic_model.V=V;
-  auto topic_model = rost->get_topic_model(); //returns a [K][V] matrix
-  assert(topic_model.size()==static_cast<size_t>(K));
-  assert(topic_model[0].size()==static_cast<size_t>(V));
-  auto it = response.topic_model.begin();
-  for(auto& topic : topic_model){
-    it = copy(topic.begin(), topic.end(), it);
-  }
-  return true;
-}
-*/
+
 template<typename W>
 void broadcast_topics(int time, const W& worddata_for_poses){
 
@@ -293,10 +344,9 @@ void words_callback(const rost_common::WordObservation::ConstPtr&  words){
 }
 
 //service callback:
-//returns the current topic model, a flattened KxV matrix
-bool pause(rost_common::Pause::Request& request, rost_common::Pause::Response& response){
-  ROS_INFO("pause service called");
-  if(request.pause){
+//pause the topic model
+void pause(bool p){
+  if(p){
     ROS_INFO("stopped listening to words");
     word_sub.shutdown();
   }
@@ -304,7 +354,11 @@ bool pause(rost_common::Pause::Request& request, rost_common::Pause::Response& r
     ROS_INFO("started listening to words");
     word_sub = nh->subscribe("words", 10, words_callback);
   }
-  rost->pause(request.pause);
+  rost->pause(p);
+}
+bool pause(rost_common::Pause::Request& request, rost_common::Pause::Response& response){
+  ROS_INFO("pause service called");
+  pause(request.pause);
   return true;
 }
 
@@ -329,6 +383,7 @@ int main(int argc, char**argv){
   nhp->param<int>("G_time", G_time,4);
   nhp->param<int>("G_space", G_space,1);
   nhp->param<bool>("polled_refine", polled_refine,false);
+
 
 
   ROS_INFO("Starting online topic modeling: K=%d, alpha=%f, beta=%f, gamma=%f tau=%f",K,k_alpha,k_beta,k_gamma,k_tau);

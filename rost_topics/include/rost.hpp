@@ -210,6 +210,16 @@ struct ROST{
   {
   }
     
+  void set_topic_model(const vector<int>& new_nZW, const vector<int>& new_weight_Z){
+    assert(new_nZW.size() == K*V);
+    assert(new_weight_Z.size() == K);
+
+    for(int k=0;k<K; ++K){
+      copy(new_nZW.begin()+k*V, new_nZW.begin()+(k+1)*V, nZW[k].begin());
+    }
+    weight_Z = new_weight_Z;
+  }
+
   //pauses the refinement adding new data
   void pause(bool p){
 
