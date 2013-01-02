@@ -1,0 +1,14 @@
+<package>
+  <description brief="rost_launch">
+
+     rost_launch
+
+  </description>
+  <author>Yogesh Alok Girdhar</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/rost_launch</url>
+
+</package>
+
+
