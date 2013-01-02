@@ -7,6 +7,7 @@
 #include <rost_common/LocalSurprise.h>
 #include <rost_common/GetTopicModel.h>
 #include <rost_common/SetTopicModel.h>
+#include <rost_common/LoadFile.h>
 #include <rost_common/SaveObservationModel.h>
 #include <rost_common/TopicWeights.h>
 #include <rost_common/Pause.h>
@@ -166,6 +167,54 @@ bool set_topic_model(rost_common::SetTopicModel::Request& request, rost_common::
 
   rost->set_topic_model(request.topic_model.phi, request.topic_model.topic_weights);
 
+  pause(false);
+  return true;
+}
+
+//service callback:
+//returns the current topic model, a flattened KxV matrix
+bool load_topic_model(rost_common::LoadFile::Request& request, rost_common::LoadFile::Response& response){
+
+  pause(true);
+  ifstream fin(request.filename.c_str());
+  YAML::Parser parser(fin);
+  YAML::Node doc;
+  parser.GetNextDocument(doc);
+  const YAML::Node& topic_model_node = doc["topic_model"];
+
+  int new_K=0, new_V=0;
+  topic_model_node["K"] >> new_K;
+  topic_model_node["V"] >> new_V;
+  if(new_K != K || new_V !=V){
+    ROS_ERROR("Attempting to load topic model of wrong size");
+    return false;
+  }
+  
+  
+  const YAML::Node &topic_weights_node = topic_model_node["topic_weights"];
+  if(topic_weights_node.size() != K){
+    return false;
+  }
+  vector<int> new_topic_weights(K,0);
+  for(int i=0;i<K;++i){
+    topic_weights_node[i] >> new_topic_weights[i];
+  }
+
+  ROS_INFO("Reading phi..");
+  vector<int> new_phi(K*V,0);
+  const YAML::Node &phi_node = topic_model_node["phi"];
+  if(phi_node.size() !=K*V){
+    return false;
+  }
+  for(int i=0;i<K*V;++i){
+    phi_node[i] >> new_phi[i];
+  }
+  ROS_INFO("Done reading phi..");
+
+  ROS_INFO("Setting topic model");
+  //  copy(new_topic_weights.begin(), new_topic_weights.end(), ostream_iterator<int>(cerr," "));
+  rost->set_topic_model(new_phi, new_topic_weights);
+  ROS_INFO("Done setting topic model");
   pause(false);
   return true;
 }
@@ -399,6 +448,8 @@ int main(int argc, char**argv){
   ros::ServiceServer get_model_perplexity_service = nh->advertiseService("get_model_perplexity", get_model_perplexity);
   ros::ServiceServer reshuffle_topics_service = nh->advertiseService("reshuffle_topics", reshuffle_topics);
   ros::ServiceServer get_topic_model_service = nh->advertiseService("get_topic_model", get_topic_model);
+  ros::ServiceServer set_topic_model_service = nh->advertiseService("set_topic_model", set_topic_model);
+  ros::ServiceServer load_topic_model_service = nh->advertiseService("load_topic_model", load_topic_model);
   ros::ServiceServer save_observation_model_service = nh->advertiseService("save_observation_model", save_observation_model);
   //ros::ServiceServer get_topic_model_service = nh->advertiseService("get_topic_model", get_topic_model);
   ros::ServiceServer pause_service = nh->advertiseService("pause", pause);

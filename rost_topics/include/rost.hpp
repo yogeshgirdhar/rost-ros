@@ -214,7 +214,7 @@ struct ROST{
     assert(new_nZW.size() == K*V);
     assert(new_weight_Z.size() == K);
 
-    for(int k=0;k<K; ++K){
+    for(int k=0;k<K; ++k){
       copy(new_nZW.begin()+k*V, new_nZW.begin()+(k+1)*V, nZW[k].begin());
     }
     weight_Z = new_weight_Z;
