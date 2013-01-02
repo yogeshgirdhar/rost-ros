@@ -151,7 +151,7 @@ namespace rost{
 	    z->word_scale.push_back(word_scale/2);
 	  }
 	}
-      cerr<<"#color-words: "<<z->words.size();
+      //cerr<<"#color-words: "<<z->words.size();
       return z;
     }
   };
@@ -254,7 +254,7 @@ namespace rost{
 	*ci++ = static_cast<int>(keypoints[ki].pt.y/img_scale);
 	*si++ = static_cast<int>(keypoints[ki].size/img_scale);
       }
-      cerr<<"#feature-words: "<<z->words.size()<<endl;
+      //cerr<<"#feature-words: "<<z->words.size()<<endl;
       return z;
     }
   };
@@ -338,7 +338,8 @@ int main(int argc, char**argv){
 
   cv::initModule_nonfree();
 
-  ros::topic::waitForMessage<sensor_msgs::Image>(image_topic_name);
+
+  //ros::topic::waitForMessage<sensor_msgs::Image>(image_topic_name);
 
   int v_begin=0;
   vector<string> feature_detector_names;
