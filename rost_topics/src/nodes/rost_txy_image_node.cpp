@@ -87,7 +87,7 @@ bool get_model_perplexity(rost_common::GetModelPerplexity::Request& request, ros
     int n_words=0;
     for(auto& pose : time_poses.second){
       vector<int> topics; double ppx;
-      tie(topics,ppx) = rost->get_topics_and_ppx_for_pose(pose);
+      tie(topics,ppx) = rost->get_ml_topics_and_ppx_for_pose(pose);
       n_words += topics.size();
       seq_ppx+=ppx;
     }
@@ -121,7 +121,7 @@ bool get_topics_for_time(rost_common::GetTopicsForTime::Request& request, rost_c
   response.perplexity=0;
   for(auto& pose : poses){
     vector<int> topics; double ppx;
-    tie(topics,ppx) = rost->get_topics_and_ppx_for_pose(pose);
+    tie(topics,ppx) = rost->get_ml_topics_and_ppx_for_pose(pose);
     response.topics.insert(response.topics.end(), topics.begin(), topics.end());
     response.perplexity+=ppx;
   }
@@ -320,7 +320,7 @@ void broadcast_topics(int time, const W& worddata_for_poses){
     const pose_t & pose = pose_data.first;
     vector<int> topics;  //topic labels for each word in the cell
     double log_likelihood; //cell's sum_w log(p(w | model) = log p(cell | model)
-    tie(topics,log_likelihood)=rost->get_topics_and_ppx_for_pose(pose_data.first);
+    tie(topics,log_likelihood)=rost->get_ml_topics_and_ppx_for_pose(pose_data.first);
 
     //populate the topic label message
     z->words.insert(z->words.end(), topics.begin(), topics.end()); 

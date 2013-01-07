@@ -270,8 +270,7 @@ struct ROST{
   }
 
   //compute maximum likelihood estimate for topics in the cell for the given pose
-  tuple<vector<int>,double> get_topics_and_ppx_for_pose(const PoseT& pose){
-    //lock_guard<mutex> lock(cells_mutex);
+  tuple<vector<int>,double> get_ml_topics_and_ppx_for_pose(const PoseT& pose){
     vector<int> topics;
     double ppx =0;
     auto cell_it = cell_lookup.find(pose);
@@ -283,6 +282,19 @@ struct ROST{
     }
     return make_tuple(topics,ppx);
   }
+
+  tuple<vector<int>,double> get_topics_and_ppx_for_pose(const PoseT& pose){
+    vector<int> topics;
+    double ppx =0;
+    auto cell_it = cell_lookup.find(pose);
+    if(cell_it != cell_lookup.end()){ 
+      auto c = get_cell(cell_it->second);
+      topics = c->Z;
+      ppx = c->perplexity;
+    }
+    return make_tuple(topics,ppx);
+  }
+
 
   shared_ptr<Cell> get_cell(size_t cid){
     lock_guard<mutex> lock(cells_mutex);
