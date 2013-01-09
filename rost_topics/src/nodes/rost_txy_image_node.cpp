@@ -1,3 +1,4 @@
+#include <signal.h> //for on_shutdown()
 #include <ros/ros.h>
 #include <rost_common/WordObservation.h>
 #include <rost_common/GetTopicsForTime.h>
@@ -411,6 +412,10 @@ bool pause(rost_common::Pause::Request& request, rost_common::Pause::Response& r
   return true;
 }
 
+void on_shutdown(int sig){
+  pause(false);
+  ros::shutdown();
+}
 
 int main(int argc, char**argv){
   ros::init(argc, argv, "rost");
@@ -454,6 +459,7 @@ int main(int argc, char**argv){
   //ros::ServiceServer get_topic_model_service = nh->advertiseService("get_topic_model", get_topic_model);
   ros::ServiceServer pause_service = nh->advertiseService("pause", pause);
 
+  signal(SIGINT, on_shutdown);
 
   pose_t G{{G_time, G_space, G_space}};
   rost = new ROST_t (V, K, k_alpha, k_beta, G);

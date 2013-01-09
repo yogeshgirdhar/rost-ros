@@ -82,7 +82,7 @@
 <arg name="topics.observation_size" default="64"/>
 <arg name="topics.p_refine_last_observation" default="0.5"/>
 
-<node pkg="rost_topics" type="rost_txy_image_node" name="rost" if="$(arg topics.enable)">
+<node pkg="rost_topics" type="rost_txy_image_node" name="rost" required="true" if="$(arg topics.enable)">
   <param name="K" value="$(arg K)"/>
   <param name="V" value="$(arg V)"/>
   <param name="alpha" value="$(arg alpha)"/>
