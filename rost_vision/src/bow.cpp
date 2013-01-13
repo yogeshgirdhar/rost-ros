@@ -9,6 +9,7 @@
 #include <cv_bridge/cv_bridge.h>
 #include <iostream>
 #include "rost_common/WordObservation.h"
+#include "rost_common/Pause.h"
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
 #include "feature_detector.hpp"
@@ -261,9 +262,16 @@ namespace rost{
 
   ros::Publisher words_pub; //words publisher
   double img_scale;
+  bool pause_bow;
+  bool pause(rost_common::Pause::Request& request, rost_common::Pause::Response& response){
+    pause_bow=request.pause;
+  }
 
   void imageCallback(const sensor_msgs::ImageConstPtr& msg)
   {
+    if(words_pub.getNumSubscribers() == 0 || pause_bow)
+      return;
+
     cv_bridge::CvImageConstPtr cv_ptr = cv_bridge::toCvShare(msg, sensor_msgs::image_encodings::BGR8);
     cv::Mat img = cv_ptr->image;
     cv::Mat imgs; //scaled color image;
@@ -334,6 +342,8 @@ int main(int argc, char**argv){
 
   nhp.param<string>("feature_descriptor",feature_descriptor_name, "ORB");
 
+  nhp.param<bool>("paused",rost::pause_bow, false);
+
   cerr<<"Image scaling: "<<rost::img_scale<<endl;
 
   cv::initModule_nonfree();
@@ -401,6 +411,8 @@ int main(int argc, char**argv){
   image_transport::ImageTransport it(nhp);
   image_transport::Subscriber sub = it.subscribe(image_topic_name, 1, rost::imageCallback);
   rost::words_pub = nh.advertise<rost_common::WordObservation>("words", 1);
+
+  ros::ServiceServer pause_service = nhp.advertiseService("pause", rost::pause);
 
   if(rate==0)
     ros::spin();
