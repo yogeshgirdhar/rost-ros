@@ -509,7 +509,7 @@ int main(int argc, char**argv){
   ros::ServiceServer save_topic_model_service = nh->advertiseService("save_topic_model", save_topic_model);
   ros::ServiceServer save_observation_model_service = nh->advertiseService("save_observation_model", save_observation_model);
   //ros::ServiceServer get_topic_model_service = nh->advertiseService("get_topic_model", get_topic_model);
-  ros::ServiceServer pause_service = nh->advertiseService("pause", pause);
+  ros::ServiceServer pause_service = nhp->advertiseService("pause", pause);
 
   signal(SIGINT, on_shutdown);
 
