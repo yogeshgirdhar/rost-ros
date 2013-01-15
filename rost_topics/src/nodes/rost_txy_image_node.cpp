@@ -26,6 +26,7 @@ typedef ROST<pose_t,neighbors<pose_t>, hash_container<pose_t> > ROST_t;
 ROST_t * rost=NULL;
 int last_time;
 size_t last_refine_count;
+bool paused;
 
 map<int, set<pose_t>> cellposes_for_time;  //list of all poses observed at a given time
 map<pose_t, vector<int>> worddata_for_pose;  //stores [pose]-> {x_i,y_i,scale_i,.....} for the current time
@@ -405,6 +406,7 @@ void pause(bool p){
     word_sub = nh->subscribe("words", 10, words_callback);
   }
   rost->pause(p);
+  paused=p;
 }
 bool pause(rost_common::Pause::Request& request, rost_common::Pause::Response& response){
   ROS_INFO("pause service called");
@@ -437,6 +439,7 @@ int main(int argc, char**argv){
   nhp->param<int>("G_time", G_time,4);
   nhp->param<int>("G_space", G_space,1);
   nhp->param<bool>("polled_refine", polled_refine,false);
+  nhp->param<bool>("paused", paused,false);
 
 
 
@@ -478,6 +481,7 @@ int main(int argc, char**argv){
 
     ros::MultiThreadedSpinner spinner(2);
     cerr<<"Spinning..."<<endl;
+    pause(paused);
     //ros::spin();
     spinner.spin();
     stop.store(true);  //signal workers to stop
