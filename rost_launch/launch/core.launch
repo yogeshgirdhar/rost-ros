@@ -43,6 +43,8 @@
 <arg name="bow.num_lbp" default="1000"/>
 <arg name="bow.dense" default="false"/>
 <arg name="bow.image_topic" default="$(arg image)" />
+
+<arg name="bow.paused" default="false"/>
 <node pkg="rost_vision" type="bow" name="visualwords" if="$(arg bow.enable)">
   <param name="vocabulary" type="string" value="$(find rost_vision)/data/orb_vocab/barbados2010_5000.yml" if="$(arg bow.use_orb_descriptor)"/>
   <param name="vocabulary" type="string" value="$(find rost_vision)/data/surf_vocab/underwater1k.yml" unless="$(arg bow.use_orb_descriptor)"/>
@@ -64,6 +66,7 @@
   <param name="num_lbp" value="$(arg bow.num_lbp)"/>
   <param name="use_dense" value="$(arg bow.dense)"/>
   <param name="image" value="$(arg bow.image_topic)"/>
+  <param name="paused" value="$(arg bow.paused)"/>
 </node>
 
 
@@ -81,6 +84,7 @@
 <arg name="topics.polled_refine" default="false"/>
 <arg name="topics.observation_size" default="64"/>
 <arg name="topics.p_refine_last_observation" default="0.5"/>
+<arg name="topics.paused" default="false"/>
 
 <node pkg="rost_topics" type="rost_txy_image_node" name="rost" required="true" if="$(arg topics.enable)">
   <param name="K" value="$(arg K)"/>
@@ -95,6 +99,7 @@
   <param name="G_time" value="$(arg G.time)"/>
   <param name="G_space" value="$(arg G.space)"/>
   <param name="polled_refine" value="$(arg topics.polled_refine)"/>
+  <param name="paused" value="$(arg topics.paused)"/>
 </node>
 
 
