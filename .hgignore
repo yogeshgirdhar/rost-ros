@@ -1,0 +1,16 @@
+syntax: glob
+*/build/*
+*/msg_gen/*
+*/srv_gen/*
+*~
+*/bin/*
+*/lib/*
+rost_common/src/rost_common/msg
+rost_common/src/rost_common/srv
+rost_common/src/rost_common/__*
+rost_vision/ext/src
+rost_vision/ext/include
+rost_vision/ext/lib
+rost_vision/ext/bin
+rost_vision/ext/tmp
+rost_vision/ext/share

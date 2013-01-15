@@ -1,0 +1,4 @@
+<launch>
+<include file="$(find rost_vision)/launch/visualwords.xml">
+</include>
+</launch>
