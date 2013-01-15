@@ -9,6 +9,7 @@
 #include <rost_common/GetTopicModel.h>
 #include <rost_common/SetTopicModel.h>
 #include <rost_common/LoadFile.h>
+#include <rost_common/SaveFile.h>
 #include <rost_common/SaveObservationModel.h>
 #include <rost_common/TopicWeights.h>
 #include <rost_common/Pause.h>
@@ -135,6 +136,31 @@ bool get_topics_for_time(rost_common::GetTopicsForTime::Request& request, rost_c
 
 //service callback:
 //returns the current topic model, a flattened KxV matrix
+rost_common::TopicModel get_topic_model_msg(){
+
+  rost_common::TopicModel topic_model_msg;
+  topic_model_msg.K=K;
+  topic_model_msg.V=V;
+  topic_model_msg.alpha=k_alpha;
+  topic_model_msg.beta=k_beta;
+
+  //populate the flattened phi matrix (topic-word distributions)
+  topic_model_msg.phi.resize(K*V);
+  auto topic_model = rost->get_topic_model(); //returns a [K][V] matrix
+  assert(topic_model.size()==static_cast<size_t>(K));
+  assert(topic_model[0].size()==static_cast<size_t>(V));
+  auto it = topic_model_msg.phi.begin();
+  for(auto& topic : topic_model){
+    it = copy(topic.begin(), topic.end(), it);
+  }
+
+  //populate topic weights
+  topic_model_msg.topic_weights = rost->get_topic_weights();
+  return topic_model_msg;
+}
+
+//service callback:
+//returns the current topic model, a flattened KxV matrix
 bool get_topic_model(rost_common::GetTopicModel::Request& request, rost_common::GetTopicModel::Response& response){
 
   response.topic_model.K=K;
@@ -173,6 +199,28 @@ bool set_topic_model(rost_common::SetTopicModel::Request& request, rost_common::
   return true;
 }
 
+bool save_topic_model(rost_common::SaveFile::Request& request, rost_common::SaveFile::Response& response){
+
+  rost_common::TopicModel t = get_topic_model_msg();
+  YAML::Emitter out;
+  out << YAML::BeginMap
+      << YAML::Key << "topic_model" << YAML::Value<< YAML::BeginMap
+      << YAML::Key << "K" << YAML::Value << t.K
+      << YAML::Key << "V" << YAML::Value << t.V
+      << YAML::Key << "alpha" << YAML::Value << t.alpha
+      << YAML::Key << "beta" << YAML::Value << t.beta
+      << YAML::Key << "phi" << YAML::Value << YAML::Flow<<t.phi
+      << YAML::Key << "topic_weights" << YAML::Value << YAML::Flow<<t.topic_weights;
+
+  out<<YAML::EndMap;//end
+  out<<YAML::EndMap;//end
+
+  ROS_INFO("SaveTopicModel: writing to model to %s",request.filename.c_str());
+  ofstream outf(request.filename.c_str());
+  outf<<out.c_str();
+  outf.close();
+  return true;
+}
 //service callback:
 //returns the current topic model, a flattened KxV matrix
 bool load_topic_model(rost_common::LoadFile::Request& request, rost_common::LoadFile::Response& response){
@@ -458,6 +506,7 @@ int main(int argc, char**argv){
   ros::ServiceServer get_topic_model_service = nh->advertiseService("get_topic_model", get_topic_model);
   ros::ServiceServer set_topic_model_service = nh->advertiseService("set_topic_model", set_topic_model);
   ros::ServiceServer load_topic_model_service = nh->advertiseService("load_topic_model", load_topic_model);
+  ros::ServiceServer save_topic_model_service = nh->advertiseService("save_topic_model", save_topic_model);
   ros::ServiceServer save_observation_model_service = nh->advertiseService("save_observation_model", save_observation_model);
   //ros::ServiceServer get_topic_model_service = nh->advertiseService("get_topic_model", get_topic_model);
   ros::ServiceServer pause_service = nh->advertiseService("pause", pause);
