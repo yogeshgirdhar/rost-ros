@@ -236,6 +236,7 @@ bool load_topic_model(rost_common::LoadFile::Request& request, rost_common::Load
   topic_model_node["K"] >> new_K;
   topic_model_node["V"] >> new_V;
   if(new_K != K || new_V !=V){
+    pause(false);
     ROS_ERROR("Attempting to load topic model of wrong size");
     return false;
   }
@@ -243,6 +244,7 @@ bool load_topic_model(rost_common::LoadFile::Request& request, rost_common::Load
   
   const YAML::Node &topic_weights_node = topic_model_node["topic_weights"];
   if(topic_weights_node.size() != K){
+    pause(false);
     return false;
   }
   vector<int> new_topic_weights(K,0);
@@ -530,7 +532,7 @@ int main(int argc, char**argv){
 
     ros::MultiThreadedSpinner spinner(2);
     cerr<<"Spinning..."<<endl;
-    pause(paused);
+    //pause(paused); //does not work!!
     //ros::spin();
     spinner.spin();
     stop.store(true);  //signal workers to stop
