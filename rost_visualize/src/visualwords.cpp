@@ -43,7 +43,7 @@ void words_callback(const rost_common::WordObservation::ConstPtr&  z){
   cv::Mat img = image_cache[z->seq];
   if(img.empty()) return;
   cv::Mat out_img = draw_keypoints(z, img);
-  cv::imshow(z->source, out_img);
+  cv::imshow("z->source", out_img);
   cv::waitKey(5);  
 }
 

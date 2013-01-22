@@ -11,6 +11,17 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 
 rosbuild_init()
 
+include(ExternalProject)
+
+set(EXT_PREFIX "${PROJECT_SOURCE_DIR}/ext")
+set(YAMLCPP_CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXT_PREFIX})
+
+ExternalProject_Add(YAMLCPP_EXT
+  PREFIX ${EXT_PREFIX}
+  URL ${CMAKE_CURRENT_SOURCE_DIR}/ext/yaml-cpp
+  CMAKE_ARGS ${YAMLCPP_CMAKE_ARGS}
+)
+
 #set the default path for built executables to the "bin" directory
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 #set the default path for built libraries to the "lib" directory
@@ -28,10 +39,22 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #rosbuild_link_boost(${PROJECT_NAME} thread)
 #rosbuild_add_executable(example examples/example.cpp)
 #target_link_libraries(example ${PROJECT_NAME})
+
+
 FIND_PACKAGE( OpenCV REQUIRED )
+rosbuild_add_boost_directories()
+include_directories(${PROJECT_SOURCE_DIR})
+include_directories("${EXT_PREFIX}/include")
+link_directories(${EXT_PREFIX}/lib)
+
 
 rosbuild_add_executable(visualwords src/visualwords.cpp)
 rosbuild_add_executable(summary src/summary.cpp)
+
+rosbuild_add_executable(genBrowser src/generateBrowser.cpp)
+target_link_libraries(genBrowser yaml-cpp)
+rosbuild_link_boost(genBrowser system)
+rosbuild_link_boost(genBrowser filesystem)
 
 target_link_libraries(visualwords ${OpenCV_LIBS})
 target_link_libraries(summary ${OpenCV_LIBS})
