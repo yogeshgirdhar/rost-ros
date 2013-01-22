@@ -13,6 +13,7 @@
   <depend package="cv_bridge"/>
   <depend package="image_transport"/>
   <depend package="rost_common"/>
+  <depend package="rosbag"/>
 </package>
 
 
