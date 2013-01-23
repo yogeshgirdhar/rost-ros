@@ -1,3 +1,0 @@
-repository='external project URL'
-module='/home/arnold/fuerte_workspace/sandbox/rost/rost_visualize/ext/yaml-cpp'
-tag=''
