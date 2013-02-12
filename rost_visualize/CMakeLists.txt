@@ -53,6 +53,7 @@ rosbuild_add_executable(summary src/summary.cpp)
 
 rosbuild_add_executable(genBrowser src/generateBrowser.cpp)
 target_link_libraries(genBrowser yaml-cpp)
+target_link_libraries(genBrowser ctemplate_nothreads)
 rosbuild_link_boost(genBrowser system)
 rosbuild_link_boost(genBrowser filesystem)
 
