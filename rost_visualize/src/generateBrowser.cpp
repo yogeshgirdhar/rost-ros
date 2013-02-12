@@ -11,6 +11,9 @@
 #include <boost/foreach.hpp>
 #include <boost/filesystem.hpp>
 #include <fstream>
+#include <string>
+#include <iostream>
+#include <ctemplate/template.h>
 #include "../yaml-cpp/include/yaml-cpp/yaml.h"
 
 namespace enc = sensor_msgs::image_encodings;
@@ -213,142 +216,58 @@ void writeTopicPage(int topic, map<int, int> mostLikely, map<int, int> overallHi
     char page_name[90];
     sprintf(page_name, "%stopic_%d.html", path, topic);
     cout << "Writing topic " << topic << " in " << page_name << endl;
-    FILE * page = fopen(page_name, "w");
-    fprintf(page, "<!doctype html>\n");
-    fprintf(page, "\t<html>\n");
-    fprintf(page, "\t\t<head>\n");
-    fprintf(page, "\t\t\t<script type=\"text/javascript\" src=\"https://www.google.com/jsapi\"></script>\n");
-    fprintf(page, "\t\t\t<script type=\"text/javascript\">\n");
-    fprintf(page, "\t\t\t\tgoogle.load(\"visualization\", \"1\", {packages:[\"corechart\"]});\n");
-    fprintf(page, "\t\t\t\tgoogle.setOnLoadCallback(drawChart);\n");
-    fprintf(page, "\t\t\t\t\tfunction drawChart() {\n");
-    fprintf(page, "\t\t\t\t\tvar data = google.visualization.arrayToDataTable([\n");
-    fprintf(page, "\t\t\t\t\t['Topic', 'Weight', 'This Topic Weight'],\n");
-    for (int i = 0; i < 64; i++){
-        fprintf(page, "\t\t\t\t\t['");
-        if ((i % 10) == 0) fprintf(page, "%d", i);
-        if (i == topic) fprintf(page, "', 0, %d],\n", overallHist[i]);
-        else fprintf(page, "', %d, 0],\n", overallHist[i]);
+    
+    ctemplate::TemplateDictionary dict("topic");
+    std::ostringstream histdata;
+    
+    for (unsigned int i = 0; i < overallHist.size(); i++){
+        histdata << "['";
+        if ((i % 10) == 0) histdata << i;
+	if (i == topic) histdata << "', 0, " << overallHist[i] <<"],";
+	else histdata << "', " << overallHist[i] << ", 0],";
     }
-    fprintf(page, "\t\t\t\t\t\t]);\n");
-    fprintf(page, "\t\t\t\t\tvar options = {\n");
-    fprintf(page, "\t\t\t\t\tcht: 'bvs',\n");
-    fprintf(page, "\t\t\t\t\ttitle: 'Topic Weights',\n");
-    fprintf(page, "\t\t\t\t\tlegend: {position: 'none'},\n");
-    fprintf(page, "\t\t\t\t\tchartArea: {left:40,top:40,width:\"100%\",height:\"80%\"},\n");
-    fprintf(page, "\t\t\t\t\tvAxis: {title: 'Topic',  titleTextStyle: {color: 'red'}},\n");
-    fprintf(page, "\t\t\t\t\thAxis: {title: 'Occurrences',  titleTextStyle: {color: 'red'}}\n");
-    fprintf(page, "\t\t\t\t\t};\n\n");
-    fprintf(page, "\t\t\t\t\tvar chart = new google.visualization.BarChart(document.getElementById('chart_div'));\n");
-    fprintf(page, "\t\t\t\t\tchart.draw(data, options);\n");
-
-    fprintf(page, "\t\t\t\tvar handler = function(e) {\n");
-    fprintf(page, "\t\t\t\t\tvar sel = chart.getSelection();\n");
-    fprintf(page, "\t\t\t\t\tvar row = sel[0]['row'];\n");
-    fprintf(page, "\t\t\t\t\tvar url = \"./topic_\" + row + \".html\";\n");
-    fprintf(page, "\t\t\t\t\twindow.location = url\n");
-    fprintf(page, "\t\t\t\t}\n");
-    fprintf(page, "\t\t\tgoogle.visualization.events.addListener(chart, 'select', handler);\n");
-
-    fprintf(page, "\t\t\t\t\t}\n");
-    fprintf(page, "\t\t\t\t\t</script>\n");
-
-    fprintf(page, "\t\t<meta charset=\"utf-8\">\n");
-    fprintf(page, "\t\t<meta http-equiv=\"X-UA-Compatible\" content=\"chrome=1\">\n");
-    fprintf(page, "\t\t\t<title>ROST Topic Browser</title>\n\n");
-    fprintf(page, "\t\t\t<link rel=\"stylesheet\" href=\"../resource/stylesheets/styles.css\">\n");
-    fprintf(page, "\t\t\t<link rel=\"stylesheet\" href=\"../resource/stylesheets/pygment_trac.css\">\n");
-    fprintf(page, "\t\t\t<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\">\n");
-    fprintf(page, "\t\t</head>\n");
-    fprintf(page, "\t\t\t<body>\n");
-    fprintf(page, "\t\t\t<div class=\"wrapper\">\n");
-    fprintf(page, "\t\t\t<header>\n");
-    fprintf(page, "\t\t\t<a href=\"../all-topics.html\"><h1>ROST Visual Topic Model Browser</h1></a>\n");
-    fprintf(page, "\t\t\t<div id=\"chart_div\" style=\"width: 325px; height: 500px;\"></div>\n\n");
-    fprintf(page, "\t\t\t</header>\n\n");
-    fprintf(page, "\t\t\t<section>\n");
-    fprintf(page, "\t\t\t<p><h3>Topic %d Maximum Likelihood Images:</h3></p>\n", topic);
+    histdata << endl;
+    string histstring = histdata.str();
+    dict.SetValue("HIST_ARRAY", histstring);
+    dict.SetIntValue("TOPIC", topic);
+    
     for (intint_it seq_occ = mostLikely.begin(); seq_occ != mostLikely.end(); seq_occ++){
-        fprintf(page, "\t\t\tSeq %d:\n", seq_occ->first);
-        fprintf(page, "\t\t\t\t<p><a href=\"../all-images.html#%d\"><img src=\"../data/best/top%d-seq%d.png\"", seq_occ->first, topic, seq_occ->first);
-        fprintf(page, "title=\"Seq. %d, %d Occurrences of Topic %d\"></a>\n", seq_occ->first, seq_occ->second, topic);
-        fprintf(page, "\t\t\t\tAlso in this image:\n");
-        map<int, float> hist = histograms[seq_occ->first];
+	ctemplate::TemplateDictionary* sub_dict = dict.AddSectionDictionary("TOPIMAGE");
+	sub_dict->SetIntValue("SEQ", seq_occ->first);
+	sub_dict->SetIntValue("OCC", seq_occ->second);
+        
+	map<int, float> hist = histograms[seq_occ->first];
         for (intfloat_it top_pct = hist.begin(); top_pct != hist.end(); top_pct++){
             if (top_pct->second > 0.1){
-                fprintf(page, "\t\t\t\t<a href=\"./topic_%d.html\">Topic %d (%2.f \%)</a>,\n", top_pct->first, top_pct->first, top_pct->second*100.0);
+		ctemplate::TemplateDictionary* also = sub_dict->AddSectionDictionary("ALSO");
+		also->SetIntValue("ALSOTOP", top_pct->first);
+		also->SetIntValue("PCT", top_pct->second*100);
             }
         }
-        fprintf(page, "</p>\n");
     }
-    fprintf(page, "\t\t\t</section>\n");
-    fprintf(page, "\t\t\t</div>\n");
-    fprintf(page, "\t\t\t<script src=\"../resource/javascripts/scale.fix.js\"></script>\n");
-    fprintf(page, "\t\t</body>\n");
-    fprintf(page, "\t</html>\n");
-    fclose(page);
+    string output;
+    ctemplate::ExpandTemplate("./resource/topic.tpl", ctemplate::DO_NOT_STRIP, &dict, &output);
+    
+    fstream page(page_name, fstream::out);
+    page << output;
+    page.close();
 }
 
 void writeAllTopicsPage(int K, vector<map<int, int> > mostLikely, map<int, int> overallHist, char *path){
-    char page_name[90];
-    sprintf(page_name, "%sall-topics.html", path);
-    FILE * page = fopen(page_name, "w");
-    fprintf(page, "<!doctype html>\n");
-    fprintf(page, "\t<html>\n");
-    fprintf(page, "\t\t<head>\n");
-    fprintf(page, "\t\t\t<script type=\"text/javascript\" src=\"https://www.google.com/jsapi\"></script>\n");
-    fprintf(page, "\t\t\t<script type=\"text/javascript\">\n");
-    fprintf(page, "\t\t\t\tgoogle.load(\"visualization\", \"1\", {packages:[\"corechart\"]});\n");
-    fprintf(page, "\t\t\t\tgoogle.setOnLoadCallback(drawChart);\n");
-    fprintf(page, "\t\t\t\t\tfunction drawChart() {\n");
-    fprintf(page, "\t\t\t\t\tvar data = google.visualization.arrayToDataTable([\n");
-    fprintf(page, "\t\t\t\t\t['Topic', 'Weight', 'This Topic Weight'],\n");
-    for (unsigned int i = 0; i < 64; i++){
-        fprintf(page, "\t\t\t\t\t['");
-        if ((i % 10) == 0) fprintf(page, "%d", i);
-        fprintf(page, "', %d, 0],\n", overallHist[i]);
+    ctemplate::TemplateDictionary dict("allTopics");
+    std::ostringstream histdata;
+    
+    for (unsigned int i = 0; i < overallHist.size(); i++){
+        histdata << "['";
+        if ((i % 10) == 0) histdata << i;
+        histdata << "', " << overallHist[i] << ", 0],";
     }
-    fprintf(page, "\t\t\t\t\t\t]);\n");
-    fprintf(page, "\t\t\t\t\tvar options = {\n");
-    fprintf(page, "\t\t\t\t\tcht: 'bvs',\n");
-    fprintf(page, "\t\t\t\t\ttitle: 'Topic Weights',\n");
-    fprintf(page, "\t\t\t\t\tlegend: {position: 'none'},\n");
-    fprintf(page, "\t\t\t\t\tchartArea: {left:40,top:40,width:\"100%\",height:\"80%\"},\n");
-    fprintf(page, "\t\t\t\t\tvAxis: {title: 'Topic',  titleTextStyle: {color: 'red'}},\n");
-    fprintf(page, "\t\t\t\t\thAxis: {title: 'Occurrences',  titleTextStyle: {color: 'red'}}\n");
-    fprintf(page, "\t\t\t\t\t};\n\n");
-    fprintf(page, "\t\t\t\t\tvar chart = new google.visualization.BarChart(document.getElementById('chart_div'));\n");
-    fprintf(page, "\t\t\t\t\tchart.draw(data, options);\n");
-
-    fprintf(page, "\t\t\t\tvar handler = function(e) {\n");
-    fprintf(page, "\t\t\t\t\tvar sel = chart.getSelection();\n");
-    fprintf(page, "\t\t\t\t\tvar row = sel[0]['row'];\n");
-
-    // Note that this depends on the location of the topics pages!
-    fprintf(page, "\t\t\t\t\tvar url = \"topics/topic_\" + row + \".html\";\n");
-
-    fprintf(page, "\t\t\t\t\twindow.location = url\n");
-    fprintf(page, "\t\t\t\t}\n");
-    fprintf(page, "\t\t\tgoogle.visualization.events.addListener(chart, 'select', handler);\n");
-
-    fprintf(page, "\t\t\t\t\t}\n");
-    fprintf(page, "\t\t\t\t\t</script>\n");
-
-    fprintf(page, "\t\t<meta charset=\"utf-8\">\n");
-    fprintf(page, "\t\t<meta http-equiv=\"X-UA-Compatible\" content=\"chrome=1\">\n");
-    fprintf(page, "\t\t\t<title>ROST Topic Browser</title>\n\n");
-    fprintf(page, "\t\t\t<link rel=\"stylesheet\" href=\"./resource/stylesheets/styles.css\">\n");
-    fprintf(page, "\t\t\t<link rel=\"stylesheet\" href=\"./resource/stylesheets/pygment_trac.css\">\n");
-    fprintf(page, "\t\t\t<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\">\n");
-    fprintf(page, "\t\t</head>\n");
-    fprintf(page, "\t\t\t<body>\n");
-    fprintf(page, "\t\t\t<div class=\"wrapper\">\n");
-    fprintf(page, "\t\t\t<header>\n");
-    fprintf(page, "\t\t\t<h1>ROST Visual Topic Model Browser</h1>\n");
-    fprintf(page, "\t\t\t<div id=\"chart_div\" style=\"width: 325px; height: 500px;\"></div>\n\n");
-    fprintf(page, "\t\t\t</header>\n\n");
-    fprintf(page, "\t\t\t<section>\n");
-    fprintf(page, "\t\t\t<p><h3>All Topics Single Maximum Likelihood Image</h3></p>\n");
+    histdata << endl;
+    string histstring = histdata.str();
+    dict.SetValue("HIST_ARRAY", histstring);
+    
+    string output;
+    
     for (unsigned int i = 0; i < K; i++){
         int most = 0;
         int most_seq = 0;
@@ -358,103 +277,51 @@ void writeAllTopicsPage(int K, vector<map<int, int> > mostLikely, map<int, int> 
                 most_seq = seq_occ->first;
             }
         }
-        fprintf(page, "\t\t\t\t<a href=\"topics/topic_%d.html\">Topic %d</a>\n", i, i);
-        fprintf(page, "<p><a href=\"./all-images.html#%d\"><img src=\"./data/best/top%d-seq%d.png\"", most_seq, i, most_seq);
-        fprintf(page, "title=\"Seq. %d\"></a></p>\n", most_seq);
+        ctemplate::TemplateDictionary* sub_dict = dict.AddSectionDictionary("TOPIMAGE");
+	sub_dict->SetIntValue("TOPIC", i);
+	sub_dict->SetIntValue("SEQ", most_seq);
     }
-    fclose(page);
-
+    ctemplate::ExpandTemplate("./resource/all-topics.tpl", ctemplate::DO_NOT_STRIP, &dict, &output);
+    char page_name[90];
+    sprintf(page_name, "%sall-topics.html", path);
+    fstream page(page_name, fstream::out);
+    page << output;
+    page.close();
 }
 
 void writeAllImagesPage(char * path, map<int, map<int, float> > histograms, int minSeq, int maxSeq){
+    ctemplate::TemplateDictionary dict("allImages");
+    
+    dict.SetIntValue("MIN_SEQ", minSeq);
+    dict.SetIntValue("SEQ_RANGE", (maxSeq - minSeq));
+    
+    std::ostringstream histdata;
+    histdata.precision(2);
+    histdata << "[";
+    for (unsigned int i = 0; i < maxSeq - minSeq; i++){
+      histdata << "[";
+      if (histograms.count(i + minSeq) > 0){
+	  map<int, float> hist = histograms[i + minSeq];
+	  for (intfloat_it top_pct = hist.begin(); top_pct != hist.end(); top_pct++){
+	      if (top_pct->second > 0.1){
+		  histdata << "[" << top_pct->first << ", ";
+		  histdata << top_pct->second*100 << "], ";
+	      }
+	  }
+      }
+      histdata << "], ";
+    }
+    histdata << "]" << std::endl;
+    string histstring = histdata.str();
+    dict.SetValue("HIST_ARRAY", histstring);
+    std::string output;
+    ctemplate::ExpandTemplate("./resource/all-images.tpl", ctemplate::DO_NOT_STRIP, &dict, &output);
+    
     char page_name[60];
     sprintf(page_name, "%sall-images.html", path);
-    FILE * page = fopen(page_name, "w");
-    fprintf(page, "<!doctype html>\n");
-    fprintf(page, "<html>\n");
-    fprintf(page, "<head>\t\n");
-    fprintf(page, "\t<meta charset=\"utf-8\">\n");
-    fprintf(page, "\t<meta http-equiv=\"X-UA-Compatible\" content=\"chrome=1\">\n");
-    fprintf(page, "\t\t<title>ROST Topic Browser</title>\n\n");
-
-    fprintf(page, "\t\t<link rel=\"stylesheet\" href=\"./resource/stylesheets/styles.css\">\n");
-    fprintf(page, "\t\t<link rel=\"stylesheet\" href=\"./resource/stylesheets/pygment_trac.css\">\n");
-    fprintf(page, "\t\t<link rel=\"stylesheet\" type=\"text/css\" href=\"./resource/slider/slider.css\" />\n\n");
-
-    fprintf(page, "\t\t<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\">\n\n");
-
-    fprintf(page, "\t\t<style type=\"text/css\">\n");
-    fprintf(page, "\t\t\t.slider {\n");
-    fprintf(page, "\t\t\twidth: 640px;\n");
-    fprintf(page, "\t\t\tfont-family: Helvetica, Arial, sans-serif;\n");
-    fprintf(page, "\t\t\tfont-size: 12px;\n");
-    fprintf(page, "\t\t\t}\n");
-    fprintf(page, "\t\t</style>\n\n");
-    fprintf(page, "\t\t<script type=\"text/javascript\" src=\"./resource/slider/slider.js\"></script>\n");
-    fprintf(page, "\t\t<script type=\"text/javascript\">\n");
-    fprintf(page, "\t\tvar im = new Image;\n");
-    fprintf(page, "\t\tvar hist_data = new Array();\n");
-    for (unsigned int i = 0; i < maxSeq - minSeq; i++){
-        fprintf(page, "\t\thist_data[%d] = [", i);
-        if (histograms.count(i + minSeq) > 0){
-            map<int, float> hist = histograms[i + minSeq];
-            for (intfloat_it top_pct = hist.begin(); top_pct != hist.end(); top_pct++){
-                if (top_pct->second > 0.1){
-                    fprintf(page, "[%d, %2.f], ", top_pct->first, top_pct->second*100);
-                }
-            }
-        }
-        fprintf(page, "];\n");
-    }
-    fprintf(page, "\n");
-    fprintf(page, "\t\t\twindow.onload = function(){\n");
-    fprintf(page, "\t\t\tvar location = (parseInt(window.location.hash.split('#')[1]) - %d)/%d;\n", minSeq, (maxSeq - minSeq));
-    fprintf(page, "\t\t\tif (isNaN(location) || location < 0) location = 0;\n");
-    fprintf(page, "\t\t\tif (location > 1) location = 1;\n");
-    fprintf(page, "\t\t\tslider = new Slider('my-slider',\n");
-    fprintf(page, "\t\t\t{\n");
-    fprintf(page, "\t\t\tsteps: %d,\n", (maxSeq - minSeq));
-    fprintf(page, "\t\t\tvalue: location,\n");
-    fprintf(page, "\t\t\tsnapping: true,\n");
-    fprintf(page, "\t\t\tcallback: function(value) {\n");
-    fprintf(page, "\t\t\t\tvar seq = Math.round(%d + value * %d);\n", minSeq, (maxSeq-minSeq));
-    fprintf(page, "\t\t\t\tvar index = seq - %d;\n", minSeq);
-    fprintf(page, "\t\t\t\tvar imgurl = \"./data/all/\" + seq + \".png\";\n");
-    fprintf(page, "\t\t\t\tvar inhtml = \"\";\n");
-    fprintf(page, "\t\t\t\tif (hist_data[index] && hist_data[index].length > 0){\n");
-    fprintf(page, "\t\t\t\tfor (var i=0; i<hist_data[index].length;i++){\n\n\n\n");
-    fprintf(page, "\t\t\t\tinhtml += \"<a href=\\");
-    fprintf(page, "./topics/topic_\" + hist_data[index][i][0] + \".html\\");
-    fprintf(page, "> Topic \" + hist_data[index][i][0];\n");
-    fprintf(page, "\t\t\t\tinhtml += \" (\" + hist_data[index][i][1] +\"%) </a>\";\n");
-    fprintf(page, "\t\t\t\t}\n");
-    fprintf(page, "\t\t\t\t}\n");
-    fprintf(page, "\t\t\t\telse{ inhtml = \"No histogram data\"; }\n");
-    fprintf(page, "\t\t\t\tim.src = imgurl;\n");
-    fprintf(page, "\t\t\t\tdocument.frame.src = imgurl;\n");
-    fprintf(page, "\t\t\t\tdocument.frame.title = seq;\n");
-    fprintf(page, "\t\t\t\tdocument.getElementById(\"seq_no\").innerHTML = \"Seq. No: \" + seq + \" - \" + inhtml;\n");
-    fprintf(page, "\t\t\t}\n");
-    fprintf(page, "\t\t\t});\n");
-    fprintf(page, "\t\tslider.callback(location)\n");
-    fprintf(page, "\t\t}\n");
-    fprintf(page, "\t</script>\n");
-    fprintf(page, "</head>\n");
-    fprintf(page, "<body>\n");
-    fprintf(page, "\t<div class=\"wrapper\">");
-    fprintf(page, "\t<header>");
-    fprintf(page, "\t\t<h1>ROST Visual Topic Model Browser</h1>\n");
-    fprintf(page, "\t</header>\n");
-    fprintf(page, "\t\t<br> <br> <br>\n");
-    fprintf(page, "\t\t<p><h3>All Images</h3></p>\n");
-    fprintf(page, "\t\t<div id=\"seq_no\">Seq. No: 4454</div>\n");
-    fprintf(page, "\t\t<p><img src=\"./data/all/4454.png\", name=\"frame\" ></p>\n");
-    fprintf(page, "\t\t<div id=\"my-slider\" class=\"slider\">\n");
-    fprintf(page, "\t\t<div class=\"handle\"> << - >> </div>\n");
-    fprintf(page, "\t</div>\n");
-    fprintf(page, "</body>\n");
-    fprintf(page, "</html>");
-    fclose(page);
+    fstream page(page_name, fstream::out);
+    page << output;
+    page.close();
 }
 
 int main(int argc, char * argv[])
