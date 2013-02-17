@@ -16,6 +16,9 @@
 using namespace std;
 namespace enc = sensor_msgs::image_encodings;
 map<unsigned, cv::Mat> image_cache;
+string vout_topicppx;
+cv::VideoWriter vwriter_topicppx;
+double vout_rate;
 
 ScorePlot perplexity_plot;
 void perplexity_callback(const rost_common::Perplexity::Ptr& msg){
@@ -53,6 +56,14 @@ void local_surprise_callback(const rost_common::LocalSurprise::ConstPtr&  msg){
   cv::Mat out_img = draw_local_surprise(msg,img);
   cv::imshow("Look!", out_img);
   cv::waitKey(5);  
+
+  if(!vout_topicppx.empty()){
+    if(!vwriter_topicppx.isOpened())
+      vwriter_topicppx.open(vout_topicppx,CV_FOURCC('M','J','P','G'), vout_rate,out_img.size());
+      //      vwriter_topicppx.open(vout_topicppx,CV_FOURCC('D','I','V','X'), vout_rate,out_img.size());
+    vwriter_topicppx << out_img;
+  }
+
 }
 
 void cell_ppx_callback(const rost_common::LocalSurprise::ConstPtr&  msg){
@@ -81,6 +92,8 @@ int main(int argc, char**argv){
   nhp->param<bool>("local_surprise", show_local_surprise, true);
   nhp->param<string>("image", image_topic_name, "/image");
   nhp->param<bool>("perplexity", show_perplexity, true);
+  nhp->param<string>("vout_topicppx", vout_topicppx, "");
+  nhp->param<double>("vout_rate", vout_rate, 5.0);
 
   ROS_INFO("reading images from: %s", image_topic_name.c_str());
   image_transport::ImageTransport it(*nh);
@@ -97,6 +110,7 @@ int main(int argc, char**argv){
     local_surprise_sub = nh->subscribe("local_surprise", 1, local_surprise_callback);
   if(show_perplexity)
     perplexity_sub = nh->subscribe("perplexity", 1, perplexity_callback);
+
 
   ros::spin();
 
