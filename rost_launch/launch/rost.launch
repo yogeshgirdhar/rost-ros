@@ -110,11 +110,13 @@
   <param name="cell_size" value="$(arg curosity.cellsize)"/>
 </node>
 
-<arg name="curosity.vis.enable" default="true"/>
-<node pkg="rost_visualize" type="visualwords" name="visualize_curosity" if="$(arg curosity.vis.enable)">
+<arg name="curiosity.vis.enable" default="true"/>
+<arg name="curiosity.vout.look" default=""/>
+<node pkg="rost_visualize" type="visualwords" name="visualize_curosity" if="$(arg curiosity.vis.enable)">
   <param name="topics" value="false"/>	
   <param name="local_surprise" value="true"/>	
   <param name="image" value="$(arg image)"/>
+  <param name="vout_topicppx" value="$(arg curiosity.vout.look)"/>
 </node>
 
 
