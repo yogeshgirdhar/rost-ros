@@ -214,7 +214,7 @@ map<int, map<int, float> > normalizeHistograms(map<int, map<int, int> > histogra
 
 void writeTopicPage(int topic, map<int, int> mostLikely, map<int, int> overallHist, map<int, map<int, float> > histograms, char *path, char * resourceroot){
     char page_name[90];
-    sprintf(page_name, "%s/topics/topic_%d.html", path, topic);
+    sprintf(page_name, "%stopic_%d.html", path, topic);
     cout << "Writing topic " << topic << " in " << page_name << endl;
     
     ctemplate::TemplateDictionary dict("topic");
@@ -246,7 +246,9 @@ void writeTopicPage(int topic, map<int, int> mostLikely, map<int, int> overallHi
         }
     }
     string output;
-    ctemplate::ExpandTemplate(resourceroot, ctemplate::DO_NOT_STRIP, &dict, &output);
+    char tpl[60];
+    sprintf(tpl, "%s/topic.tpl", resourceroot);
+    ctemplate::ExpandTemplate(tpl, ctemplate::DO_NOT_STRIP, &dict, &output);
     
     fstream page(page_name, fstream::out);
     page << output;
@@ -382,14 +384,13 @@ int main(int argc, char * argv[])
     saveAllImages(argv[2], "/camera_front_center/image", dir_name2, &minSeq, &maxSeq);
 
     char htmlroot_name[40];
-    sprintf(htmlroot_name, "%s/site/", argv[3]);
+    sprintf(htmlroot_name, "%s/site/", argv[6]);
     boost::filesystem::create_directories(htmlroot_name);
     cout << "Copying javascript & css resources" << endl;
     char resourceroot_name[40];
     sprintf(resourceroot_name, "%sresource", htmlroot_name);
     if (copyDir(boost::filesystem::path(argv[5]), boost::filesystem::path(resourceroot_name)) == 0){
         cout << "Error: could not copy resource directory" << endl;
-        return -1;
     }
     cout << "Writing all topics page..." << endl;
     writeAllTopicsPage(K, mostLikely, overallHist, htmlroot_name);
