@@ -96,7 +96,7 @@ bool mapHasCloseSeq(map<int, int> best_seq_occ, int newSeq, int min_dist){
     return false;
 }
 
-map<int, int> getMostLikelySeqs(int k, unsigned int n, map<int, map <int, int> > histograms){
+map<int, int> getMostLikelySeqs(int k, unsigned int n, map<int, map <int, int> > histograms, int eps){
     // seq, occurrences
     map<int, int> best_seq_occ;
     // for each histogram
@@ -112,7 +112,7 @@ map<int, int> getMostLikelySeqs(int k, unsigned int n, map<int, map <int, int> >
             // otherwise, for each of the most likely values
             for (intint_it seq_occ = best_seq_occ.begin(); seq_occ != best_seq_occ.end(); seq_occ++){
                 // if the value in the histogram is more than the mostLikely value
-                if (seq_hist->second[k] > seq_occ->second && !mapHasCloseSeq(best_seq_occ, seq_hist->first, 8)){
+                if (seq_hist->second[k] > seq_occ->second && !mapHasCloseSeq(best_seq_occ, seq_hist->first, eps)){
                     // insert its sequence before this mostLikely value
                     best_seq_occ.insert(seq_occ, pair<int, int>(seq_hist->first, seq_hist->second[k]));
                     // if there are more mostLikely's than we wanted
@@ -212,9 +212,9 @@ map<int, map<int, float> > normalizeHistograms(map<int, map<int, int> > histogra
     return normaled;
 }
 
-void writeTopicPage(int topic, map<int, int> mostLikely, map<int, int> overallHist, map<int, map<int, float> > histograms, char *path){
+void writeTopicPage(int topic, map<int, int> mostLikely, map<int, int> overallHist, map<int, map<int, float> > histograms, char *path, char * resourceroot){
     char page_name[90];
-    sprintf(page_name, "%stopic_%d.html", path, topic);
+    sprintf(page_name, "%s/topics/topic_%d.html", path, topic);
     cout << "Writing topic " << topic << " in " << page_name << endl;
     
     ctemplate::TemplateDictionary dict("topic");
@@ -246,7 +246,7 @@ void writeTopicPage(int topic, map<int, int> mostLikely, map<int, int> overallHi
         }
     }
     string output;
-    ctemplate::ExpandTemplate("./resource/topic.tpl", ctemplate::DO_NOT_STRIP, &dict, &output);
+    ctemplate::ExpandTemplate(resourceroot, ctemplate::DO_NOT_STRIP, &dict, &output);
     
     fstream page(page_name, fstream::out);
     page << output;
@@ -281,7 +281,9 @@ void writeAllTopicsPage(int K, vector<map<int, int> > mostLikely, map<int, int> 
 	sub_dict->SetIntValue("TOPIC", i);
 	sub_dict->SetIntValue("SEQ", most_seq);
     }
-    ctemplate::ExpandTemplate("./resource/all-topics.tpl", ctemplate::DO_NOT_STRIP, &dict, &output);
+    char resource_path[60];
+    sprintf(resource_path, "%s/resource/all-topics.tpl", path);
+    ctemplate::ExpandTemplate(resource_path, ctemplate::DO_NOT_STRIP, &dict, &output);
     char page_name[90];
     sprintf(page_name, "%sall-topics.html", path);
     fstream page(page_name, fstream::out);
@@ -315,7 +317,9 @@ void writeAllImagesPage(char * path, map<int, map<int, float> > histograms, int 
     string histstring = histdata.str();
     dict.SetValue("HIST_ARRAY", histstring);
     std::string output;
-    ctemplate::ExpandTemplate("./resource/all-images.tpl", ctemplate::DO_NOT_STRIP, &dict, &output);
+    char resource_path[60];
+    sprintf(resource_path, "%s/resource/all-images.tpl", path);
+    ctemplate::ExpandTemplate(resource_path, ctemplate::DO_NOT_STRIP, &dict, &output);
     
     char page_name[60];
     sprintf(page_name, "%sall-images.html", path);
@@ -326,8 +330,8 @@ void writeAllImagesPage(char * path, map<int, map<int, float> > histograms, int 
 
 int main(int argc, char * argv[])
 {
-    if (argc != 4){
-        cout << "Arguments <yml-file> <bag-file> <site-destination>" << endl;
+    if (argc != 7){
+        cout << "Arguments <yml-file> <bag-file> <images per topic> <minimum seq. difference> <resource-directory> <site-destination>" << endl;
         return -1;
     }
     YAML::Node model = YAML::LoadFile(argv[1]);
@@ -343,12 +347,15 @@ int main(int argc, char * argv[])
             i++;
         }
     }
-
+    int imagesPerTopic = 5;
+    int minSeqDif = 5;
+    sscanf(argv[3], "%d", &imagesPerTopic);
+    sscanf(argv[4], "%d", &minSeqDif);
     //printHistograms(histograms);
     cout << "Computing maximum likelihood images..." << endl;
     vector < map<int, int> > mostLikely;
     for (unsigned int k = 0; k < K; k++){
-        mostLikely.push_back(getMostLikelySeqs(k, 5, histograms));
+        mostLikely.push_back(getMostLikelySeqs(k, imagesPerTopic, histograms, minSeqDif));
     }
 
     cout << "Calculating overall histogram..." << endl;
@@ -360,7 +367,7 @@ int main(int argc, char * argv[])
     char dataroot_name[60];
     char dir_name1[70];
     char dir_name2[70];
-    sprintf(dataroot_name, "%s/site/data/", argv[3]);
+    sprintf(dataroot_name, "%s/site/data/", argv[6]);
     sprintf(dir_name1, "%sbest/", dataroot_name);
     sprintf(dir_name2, "%sall/", dataroot_name);
     boost::filesystem::create_directories(dir_name1);
@@ -377,6 +384,13 @@ int main(int argc, char * argv[])
     char htmlroot_name[40];
     sprintf(htmlroot_name, "%s/site/", argv[3]);
     boost::filesystem::create_directories(htmlroot_name);
+    cout << "Copying javascript & css resources" << endl;
+    char resourceroot_name[40];
+    sprintf(resourceroot_name, "%sresource", htmlroot_name);
+    if (copyDir(boost::filesystem::path(argv[5]), boost::filesystem::path(resourceroot_name)) == 0){
+        cout << "Error: could not copy resource directory" << endl;
+        return -1;
+    }
     cout << "Writing all topics page..." << endl;
     writeAllTopicsPage(K, mostLikely, overallHist, htmlroot_name);
 
@@ -388,14 +402,7 @@ int main(int argc, char * argv[])
     boost::filesystem::create_directories(topicsroot_name);
     cout << "Writing topic pages in " << topicsroot_name << endl;
     for (unsigned int k = 0; k < K; k++){
-        writeTopicPage(k, mostLikely[k], overallHist, normal_hists, topicsroot_name);
-    }
-    cout << "Copying javascript & css resources" << endl;
-    char resourceroot_name[40];
-    sprintf(resourceroot_name, "%sresource", htmlroot_name);
-    if (copyDir(boost::filesystem::path("./resource"), boost::filesystem::path(resourceroot_name)) == 0){
-        cout << "Error: could not copy resource directory" << endl;
-        return -1;
+        writeTopicPage(k, mostLikely[k], overallHist, normal_hists, topicsroot_name, resourceroot_name);
     }
 
     return 0;
