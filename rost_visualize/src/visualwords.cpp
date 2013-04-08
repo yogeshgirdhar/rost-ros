@@ -16,8 +16,8 @@
 using namespace std;
 namespace enc = sensor_msgs::image_encodings;
 map<unsigned, cv::Mat> image_cache;
-string vout_topicppx;
-cv::VideoWriter vwriter_topicppx;
+string vout_topicppx, vout_topics;
+cv::VideoWriter vwriter_topicppx, vwriter_topics;
 double vout_rate;
 
 ScorePlot perplexity_plot;
@@ -47,7 +47,16 @@ void words_callback(const rost_common::WordObservation::ConstPtr&  z){
   if(img.empty()) return;
   cv::Mat out_img = draw_keypoints(z, img);
   cv::imshow("z->source", out_img);
-  cv::waitKey(5);  
+  cv::waitKey(5); 
+
+  if(!vout_topics.empty()){
+    if(!vwriter_topics.isOpened())
+      //      vwriter_topics.open(vout_topics,CV_FOURCC('M','J','P','G'), vout_rate,out_img.size());
+      vwriter_topics.open(vout_topics,CV_FOURCC('I','Y','U','V'), vout_rate,out_img.size());
+
+    vwriter_topics << out_img;
+  }
+
 }
 
 void local_surprise_callback(const rost_common::LocalSurprise::ConstPtr&  msg){
@@ -59,8 +68,9 @@ void local_surprise_callback(const rost_common::LocalSurprise::ConstPtr&  msg){
 
   if(!vout_topicppx.empty()){
     if(!vwriter_topicppx.isOpened())
-      vwriter_topicppx.open(vout_topicppx,CV_FOURCC('M','J','P','G'), vout_rate,out_img.size());
-      //      vwriter_topicppx.open(vout_topicppx,CV_FOURCC('D','I','V','X'), vout_rate,out_img.size());
+      //vwriter_topicppx.open(vout_topicppx,CV_FOURCC('M','J','P','G'), vout_rate,out_img.size());
+      vwriter_topicppx.open(vout_topicppx,CV_FOURCC('I','Y','U','V'), vout_rate,out_img.size());
+
     vwriter_topicppx << out_img;
   }
 
@@ -93,6 +103,7 @@ int main(int argc, char**argv){
   nhp->param<string>("image", image_topic_name, "/image");
   nhp->param<bool>("perplexity", show_perplexity, true);
   nhp->param<string>("vout_topicppx", vout_topicppx, "");
+  nhp->param<string>("vout_topics", vout_topics, "");
   nhp->param<double>("vout_rate", vout_rate, 5.0);
 
   ROS_INFO("reading images from: %s", image_topic_name.c_str());

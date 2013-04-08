@@ -2,7 +2,8 @@
 #include <image_transport/image_transport.h>
 #include <opencv/cv.h>
 #include <opencv/highgui.h>
-#include <cv_bridge/CvBridge.h>
+#include <cv_bridge/cv_bridge.h>
+#include <sensor_msgs/image_encodings.h>
 #include "rost_common/WordObservation.h"
 #include "rost_common/Summary.h"
 #include "rost_common/SummaryObservations.h"
@@ -11,7 +12,7 @@
 #include<iostream>
 #include<algorithm>
 using namespace std;
-
+namespace enc = sensor_msgs::image_encodings;
 map<unsigned int, cv::Mat> images;
 map<unsigned int, vector<int> > scales;
 map<unsigned int, vector<int> > coordinates;
@@ -181,8 +182,15 @@ void update_window(){
 void image_callback(const sensor_msgs::ImageConstPtr& msg)
 {
   //std::cerr<<"Received image: "<<msg->header.seq<<endl;  
-  sensor_msgs::CvBridge bridge;   
-  cv::Mat img = bridge.imgMsgToCv(msg, "bgr8");  
+  cv_bridge::CvImagePtr cv_ptr;
+  try{
+    cv_ptr = cv_bridge::toCvCopy(msg, enc::BGR8);
+  }
+  catch (cv_bridge::Exception& e){
+    ROS_ERROR("cv_bridge exception: %s", e.what());
+  }
+  cv::Mat img = cv_ptr->image.clone();
+
   live_image = fit(img,window_w/4, window_h/4);
   //cv::imshow("live", live_image);
 

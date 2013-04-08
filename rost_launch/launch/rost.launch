@@ -77,12 +77,12 @@
 <arg name="beta" default="0.1"/>
 <arg name="tau" default="2.0"/>
 <arg name="threads" default="4"/>
-<arg name="cell.width" default="160"/>
+<arg name="cell.width" default="80"/>
 <arg name="G.time" default="1"/>
 <arg name="G.space" default="1"/>
 <arg name="topics.polled_refine" default="false"/>
 <arg name="topics.observation_size" default="64"/>
-<arg name="topics.p_refine_last_observation" default="0.5"/>
+<arg name="topics.p_refine_last_observation" default="0.1"/>
 
 <node pkg="rost_topics" type="rost_txy_image_node" name="rost" if="$(arg topics.enable)">
   <param name="K" value="$(arg K)"/>
@@ -122,7 +122,7 @@
 
 
 <arg name="sum.enable" default="true"/>
-<arg name="S" default="16"/>
+<arg name="S" default="9"/>
 <arg name="summary.threshold" default="auto"/>
 <node pkg="rost_summarizer" type="summarizer" name="summarizer" if="$(arg sum.enable)">
   <param name="S" value="$(arg S)"/>
