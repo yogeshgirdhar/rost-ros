@@ -1,0 +1,31 @@
+<launch>
+<arg name="scale" default="1.0" />
+<arg name="rate" default="0" />
+<arg name="hue" default="true" />
+<arg name="intensity" default="false" />
+<arg name="orb" default="true" />
+<arg name="surf" default="false" />
+<arg name="grid_orb" default="false" />
+<arg name="num_grid_orb" default="1000" />
+<arg name="lbp" default="false" />
+<arg name="num_lbp" default="1000" />
+<arg name="image_topic" default="/image" />
+
+
+<node pkg="rost_vision" type="bow" name="visualwords">
+  <!--param name="vocabulary" type="string" value="$(find summarizer)/share/vocab/underwater1k.yml"/-->
+  <param name="vocabulary" type="string" value="$(find rost_vision)/data/orb_vocab/barbados2010_5000.yml"/>
+  <param name="feature_descriptor" type="string" value="ORB"/>
+  <param name="scale" type="double" value="$(arg scale)"/>
+  <param name="rate" type="int" value="$(arg rate)"/>
+  <param name="use_hue" value="$(arg hue)"/>
+  <param name="use_intensity" value="$(arg intensity)"/>
+  <param name="use_orb" value="$(arg orb)"/>
+  <param name="use_surf" value="$(arg surf)"/>
+  <param name="use_grid_orb" value="$(arg grid_orb)"/>
+  <param name="num_grid_orb" value="$(arg num_grid_orb)"/>
+  <param name="use_lbp" value="$(arg lbp)"/>
+  <param name="num_lbp" value="$(arg num_lbp)"/>
+  <param name="image" value="$(arg image_topic)"/>
+</node>
+</launch>

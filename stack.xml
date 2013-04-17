@@ -1,0 +1,13 @@
+<stack>
+  <description brief="ROST: Realtime Online Spatiotemporal Topics">
+    Online topic modelling for semantic scene understanding
+  </description>
+  <author>Yogesh Girdhar</author>
+  <license>BSD</license>
+  <review status="experimental" notes=""/>
+  <url>http://cim.mcgill.ca/~yogesh/rost</url>
+  <depend stack="ros" />
+  <depend stack="vision_opencv" />
+  <depend stack="image_common" />
+
+</stack>
