@@ -169,7 +169,7 @@ void saveAllImages(string bagname, string topicname, char * path, int * minSeq, 
             char fname[60];
             if (i->header.seq < *minSeq) *minSeq = i->header.seq;
             if (i->header.seq > *maxSeq) *maxSeq = i->header.seq;
-            if (i->header.seq % 20 == 0) cout << "..seq: " << i->header.seq << endl;
+            cout << "..seq: " << i->header.seq << endl;
             sprintf(fname, "%s%d.png", path, i->header.seq);
             imwrite(fname, (cv_bridge::toCvCopy(i, enc::BGR8))->image);
         }
@@ -230,7 +230,7 @@ void writeTopicPage(int topic, map<int, int> mostLikely, map<int, int> overallHi
     string histstring = histdata.str();
     dict.SetValue("HIST_ARRAY", histstring);
     dict.SetIntValue("TOPIC", topic);
-    
+    std::cout << "----->" << mostLikely.size() << std::endl;
     for (intint_it seq_occ = mostLikely.begin(); seq_occ != mostLikely.end(); seq_occ++){
 	ctemplate::TemplateDictionary* sub_dict = dict.AddSectionDictionary("TOPIMAGE");
 	sub_dict->SetIntValue("SEQ", seq_occ->first);
@@ -332,8 +332,8 @@ void writeAllImagesPage(char * path, map<int, map<int, float> > histograms, int 
 
 int main(int argc, char * argv[])
 {
-    if (argc != 7){
-        cout << "Arguments <yml-file> <bag-file> <images per topic> <minimum seq. difference> <resource-directory> <site-destination>" << endl;
+    if (argc != 8){
+        cout << "Arguments <yml-file> <bag-file> <image-topic> <images per topic> <minimum seq. difference> <resource-directory> <site-destination>" << endl;
         return -1;
     }
     YAML::Node model = YAML::LoadFile(argv[1]);
@@ -351,8 +351,8 @@ int main(int argc, char * argv[])
     }
     int imagesPerTopic = 5;
     int minSeqDif = 5;
-    sscanf(argv[3], "%d", &imagesPerTopic);
-    sscanf(argv[4], "%d", &minSeqDif);
+    sscanf(argv[4], "%d", &imagesPerTopic);
+    sscanf(argv[5], "%d", &minSeqDif);
     //printHistograms(histograms);
     cout << "Computing maximum likelihood images..." << endl;
     vector < map<int, int> > mostLikely;
@@ -369,27 +369,27 @@ int main(int argc, char * argv[])
     char dataroot_name[60];
     char dir_name1[70];
     char dir_name2[70];
-    sprintf(dataroot_name, "%s/site/data/", argv[6]);
+    sprintf(dataroot_name, "%s/site/data/", argv[7]);
     sprintf(dir_name1, "%sbest/", dataroot_name);
     sprintf(dir_name2, "%sall/", dataroot_name);
     boost::filesystem::create_directories(dir_name1);
     boost::filesystem::create_directories(dir_name2);
 
     cout << "Saving maximum likelihood images in " << dir_name1 << endl;
-    saveImages(argv[2], "/camera_front_center/image", mostLikely, dir_name1);
+    saveImages(argv[2], argv[3], mostLikely, dir_name1);
 
     cout << "Saving all images in " << dir_name2 << endl;
     int minSeq = 100000;
     int maxSeq = 0;
-    saveAllImages(argv[2], "/camera_front_center/image", dir_name2, &minSeq, &maxSeq);
+    saveAllImages(argv[2], argv[3], dir_name2, &minSeq, &maxSeq);
 
     char htmlroot_name[40];
-    sprintf(htmlroot_name, "%s/site/", argv[6]);
+    sprintf(htmlroot_name, "%s/site/", argv[7]);
     boost::filesystem::create_directories(htmlroot_name);
     cout << "Copying javascript & css resources" << endl;
     char resourceroot_name[40];
     sprintf(resourceroot_name, "%sresource", htmlroot_name);
-    if (copyDir(boost::filesystem::path(argv[5]), boost::filesystem::path(resourceroot_name)) == 0){
+    if (copyDir(boost::filesystem::path(argv[6]), boost::filesystem::path(resourceroot_name)) == 0){
         cout << "Error: could not copy resource directory" << endl;
     }
     cout << "Writing all topics page..." << endl;

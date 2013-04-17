@@ -220,6 +220,7 @@ bool save_topic_model(rost_common::SaveFile::Request& request, rost_common::Save
   outf<<out.c_str();
   outf.close();
   return true;
+  //return false;
 }
 //service callback:
 //returns the current topic model, a flattened KxV matrix
@@ -240,7 +241,6 @@ bool load_topic_model(rost_common::LoadFile::Request& request, rost_common::Load
     ROS_ERROR("Attempting to load topic model of wrong size");
     return false;
   }
-  
   
   const YAML::Node &topic_weights_node = topic_model_node["topic_weights"];
   if(topic_weights_node.size() != K){
@@ -269,6 +269,7 @@ bool load_topic_model(rost_common::LoadFile::Request& request, rost_common::Load
   ROS_INFO("Done setting topic model");
   pause(false);
   return true;
+  //return false;
 }
 
 //service callback:
@@ -322,6 +323,7 @@ bool save_observation_model(rost_common::SaveObservationModel::Request& request,
   outf.close();
   
   return true;
+  //return false;
 }
 
 
