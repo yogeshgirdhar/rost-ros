@@ -1,0 +1,175 @@
+<launch>
+
+<arg name="image" default="/image"/>
+<arg name="image.width" default="640"/>
+<arg name="image.height" default="480"/>
+
+<group ns="rost">
+
+<arg name="vis.enable" default="true"/>
+<arg name="vis.width" default="1024"/>
+<arg name="vis.height" default="768"/>
+<arg name="vout" default=""/>
+<arg name="vis.blackbg" default="false"/>
+<node pkg="rost_visualize" type="summary" name="summary_viewer" if="$(arg vis.enable)">
+  <param name="vout" value="$(arg vout)"/> 
+  <param name="width" value="$(arg vis.width)"/>
+  <param name="height" value="$(arg vis.height)"/>
+  <param name="black" value="$(arg vis.blackbg)"/>
+  <param name="image" value="$(arg image)"/>
+</node>
+
+
+
+
+<arg name="bow.enable" default="true"/>
+<arg name="bow.use_orb_descriptor" default="true"/>
+<arg name="bow.scale" default="1"/>
+<arg name="bow.rate" default="0"/>
+<arg name="bow.hue" default="true"/>
+<arg name="bow.intensity" default="false"/>
+<arg name="bow.color_cell_size" default="32"/>
+
+<arg name="bow.orb" default="true"/>
+<arg name="bow.num_orb" default="1000"/>
+
+<arg name="bow.aqua_orb" default="false"/>
+<arg name="bow.num_aqua_orb" default="1000"/>
+
+<arg name="bow.surf" default="false"/>
+
+<arg name="bow.grid_orb" default="false"/>
+<arg name="bow.num_grid_orb" default="1000"/>
+
+<arg name="bow.lbp" default="false"/>
+<arg name="bow.num_lbp" default="1000"/>
+<arg name="bow.dense" default="false"/>
+<arg name="bow.image_topic" default="$(arg image)" />
+<node pkg="rost_vision" type="bow" name="visualwords" if="$(arg bow.enable)">
+  <param name="vocabulary" type="string" value="$(find rost_vision)/data/orb_vocab/barbados2010_5000.yml" if="$(arg bow.use_orb_descriptor)"/>
+  <param name="vocabulary" type="string" value="$(find rost_vision)/data/surf_vocab/underwater1k.yml" unless="$(arg bow.use_orb_descriptor)"/>
+  <param name="feature_descriptor" type="string" value="ORB" if="$(arg bow.use_orb_descriptor)" />
+  <param name="feature_descriptor" type="string" value="SURF" unless="$(arg bow.use_orb_descriptor)"/>
+  <param name="scale" type="double" value="$(arg bow.scale)"/>
+  <param name="rate" type="int" value="$(arg bow.rate)"/>
+  <param name="use_hue" value="$(arg bow.hue)"/>
+  <param name="use_intensity" value="$(arg bow.intensity)"/>
+  <param name="color_cell_size" value="$(arg bow.color_cell_size)"/>
+  <param name="use_orb" value="$(arg bow.orb)"/>
+  <param name="num_orb" value="$(arg bow.num_orb)"/>
+  <param name="use_aqua_orb" value="$(arg bow.aqua_orb)"/>
+  <param name="num_aqua_orb" value="$(arg bow.num_aqua_orb)"/>
+  <param name="use_surf" value="$(arg bow.surf)"/>
+  <param name="use_grid_orb" value="$(arg bow.grid_orb)"/>
+  <param name="num_grid_orb" value="$(arg bow.num_grid_orb)"/>
+  <param name="use_lbp" value="$(arg bow.lbp)"/>
+  <param name="num_lbp" value="$(arg bow.num_lbp)"/>
+  <param name="use_dense" value="$(arg bow.dense)"/>
+  <param name="image" value="$(arg bow.image_topic)"/>
+</node>
+
+
+<arg name="topics.enable" default="true"/>
+<arg name="K" default="64"/>
+<arg name="V" value="5500" if="$(arg bow.use_orb_descriptor)"/>
+<arg name="V" value="1500" unless="$(arg bow.use_orb_descriptor)"/>
+<arg name="alpha" default="0.1"/>
+<arg name="beta" default="0.1"/>
+<arg name="tau" default="2.0"/>
+<arg name="threads" default="4"/>
+<arg name="cell.width" default="160"/>
+<arg name="G.time" default="1"/>
+<arg name="G.space" default="1"/>
+<arg name="topics.polled_refine" default="false"/>
+<arg name="topics.observation_size" default="64"/>
+<arg name="topics.p_refine_last_observation" default="0.5"/>
+
+<node pkg="rost_topics" type="rost_txy_image_node" name="rost" if="$(arg topics.enable)">
+  <param name="K" value="$(arg K)"/>
+  <param name="V" value="$(arg V)"/>
+  <param name="alpha" value="$(arg alpha)"/>
+  <param name="beta" value="$(arg beta)"/>
+  <param name="tau" value="$(arg tau)"/>
+  <param name="observation_size" value="$(arg topics.observation_size)"/>
+  <param name="p_refine_last_observation" value="$(arg topics.p_refine_last_observation)"/>
+  <param name="num_threads" value="$(arg threads)"/>
+  <param name="cell_width" value="$(arg cell.width)"/>
+  <param name="G_time" value="$(arg G.time)"/>
+  <param name="G_space" value="$(arg G.space)"/>
+  <param name="polled_refine" value="$(arg topics.polled_refine)"/>
+</node>
+
+
+
+<arg name="curosity.enable" default="true"/>
+<arg name="curosity.cellsize" default="$(arg cell.width)"/>
+
+<node pkg="rost_curosity" type="curosity" name="curosity" if="$(arg curosity.enable)">
+  <param name="img_height" value="$(arg image.height)"/>
+  <param name="img_width" value="$(arg image.width)"/>
+  <param name="cell_size" value="$(arg curosity.cellsize)"/>
+</node>
+
+<arg name="curosity.vis.enable" default="true"/>
+<node pkg="rost_visualize" type="visualwords" name="visualize_curosity" if="$(arg curosity.vis.enable)">
+  <param name="topics" value="false"/>	
+  <param name="local_surprise" value="true"/>	
+  <param name="image" value="$(arg image)"/>
+</node>
+
+
+
+<arg name="sum.enable" default="true"/>
+<arg name="S" default="16"/>
+<arg name="summary.threshold" default="auto"/>
+<node pkg="rost_summarizer" type="summarizer" name="summarizer" if="$(arg sum.enable)">
+  <param name="S" value="$(arg S)"/>
+  <param name="topics" value="true" if="$(arg topics.enable)"/>
+  <param name="threshold" value="$(arg summary.threshold)"/>
+</node>
+
+
+<arg name="bag.enable" default="false"/>
+<arg name="bag.name" default="S$(arg S)_K$(arg K)_alpha$(arg alpha)_beta$(arg beta)"/>
+<arg name="bag.prefix" default="/tmp/rost_"/>
+<arg name="bag.saveimages" default="true"/>
+<arg name="bag.imagetopic" value="" unless="$(arg bag.saveimages)"/>
+<arg name="bag.imagetopic" value="$(arg image)" if="$(arg bag.saveimages)"/>
+<arg name="bag.topics" default="words topics summary summary_observations perplexity local_surprise local_surprise_yaw $(arg bag.imagetopic)"/>
+<node pkg="rosbag" type="record" name="record" args="--output-name=$(arg bag.prefix)$(arg bag.name).bag  $(arg bag.topics) --bz2" if="$(arg bag.enable)">
+</node>
+
+</group>
+
+<arg name="image_source.enable" default="true"/>
+
+<group if="$(arg image_source.enable)">
+<arg name="camera" default="false"/>
+<arg name="file" default=""/>
+<arg name="video.begin" default="0"/>
+<arg name="video.end" default="-1"/>
+<arg name="video.subsample" default="1"/>
+<arg name="video.loop" default="false"/>
+<arg name="video.scale" default="1.0"/>
+<arg name="video.rate" default="5"/>
+<include file="$(find cv_image_source)/launch/file.launch" unless="$(arg camera)" >
+	 <arg name="file"    value="$(arg file)"/>
+	 <arg name="vbegin"  value="$(arg video.begin)" />
+	 <arg name="vend"    value="$(arg video.end)" />
+	 <arg name="subsample" value="$(arg video.subsample)" />
+	 <arg name="loop"    value="$(arg video.loop)"/>
+	 <arg name="scale"   value="$(arg video.scale)"/>
+	 <arg name="rate"    value="$(arg video.rate)"/>
+	 <arg name="quit_on_eos" value="true"/>
+</include>
+
+<include file="$(find cv_image_source)/launch/camera.launch" if="$(arg camera)">
+	 <arg name="scale" value="$(arg video.scale)"/>
+	 <arg name="rate" value="$(arg video.rate)"/>
+	 <arg name="width"   value="$(arg image.width)"/>
+	 <arg name="height"  value="$(arg image.height)"/>
+</include>
+</group>
+
+
+</launch>

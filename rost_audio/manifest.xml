@@ -1,0 +1,21 @@
+<package>
+  <description brief="rost_audio">
+
+     rost_audio
+
+  </description>
+  <author>arnold</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/rost_audio</url>
+  <depend package="roscpp"/>
+  <depend package="rost_common"/>
+  <depend package="audio_common_msgs"/>
+  <depend package="cv_bridge"/>
+  <rosdep name="gstreamer0.10-plugins-ugly"/>
+  <rosdep name="gstreamer0.10-plugins-good"/>
+
+
+</package>
+
+

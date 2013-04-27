@@ -1,0 +1,15 @@
+<package>
+  <description brief="rost_common">
+
+    rost_common
+
+  </description>
+  <author>Yogesh Alok Girdhar</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/rost_common</url>
+  <depend package="std_msgs"/>
+  <depend package="sensor_msgs"/>
+</package>
+
+
