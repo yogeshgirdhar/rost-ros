@@ -21,6 +21,9 @@ ExternalProject_Add(YAMLCPP_EXT
   URL ${CMAKE_CURRENT_SOURCE_DIR}/ext/yaml-cpp
   CMAKE_ARGS ${YAMLCPP_CMAKE_ARGS}
 )
+find_package(PkgConfig)
+#pkg_search_module(TINYXML REQUIRED tinyxml)
+
 
 #set the default path for built executables to the "bin" directory
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
