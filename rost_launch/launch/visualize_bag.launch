@@ -2,6 +2,7 @@
 <arg name="image" default="/image"/>
 <arg name="vout.look" default=""/>
 <arg name="vout.topics" default=""/>
+<arg name="vout.images" default=""/>
 <arg name="vout.rate" default="5.0"/>
 <!--group ns="rost"-->
 <node pkg="rost_visualize" type="visualwords" name="visualize_curosity" >
@@ -10,6 +11,7 @@
   <param name="image" value="$(arg image)"/>
   <param name="vout_topicppx" value="$(arg vout.look)"/>
   <param name="vout_topics" value="$(arg vout.topics)"/>
+  <param name="vout_images" value="$(arg vout.images)"/>
   <param name="vout_rate" value="$(arg vout.rate)"/>
 </node>
 <!--/group-->
