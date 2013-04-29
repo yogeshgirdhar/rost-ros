@@ -15,6 +15,7 @@
 extern "C"{
 #endif
 #include "libmfcc.h"
+#include <math.h>
 #ifdef __cplusplus
 }
 #endif
@@ -30,6 +31,7 @@ int fft_buf_size;
 int fft_hop_size;
 int seq;
 double *hamming;
+double MAX = pow(2, 16);
 
 deque<double> iQ;
 
@@ -71,7 +73,7 @@ vector<int> getMFCCs(int num_samples, int samplerate){
     // Set up the fft
     fftw_complex *out;
     fftw_plan plan;
-    double spectrum[fft_buf_size];
+    double spectrum[fft_buf_size/2+1];
     double * in = (double*) fftw_malloc(sizeof(double)*fft_buf_size);
     out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*(fft_buf_size/2+1));
     plan = fftw_plan_dft_r2c_1d(fft_buf_size, in, out, FFTW_MEASURE);
@@ -90,7 +92,7 @@ vector<int> getMFCCs(int num_samples, int samplerate){
      
       // Run the fft
       fftw_execute(plan);
-      for (i = 0; i < fft_hop_size+1; i++){
+      for (i = 0; i < fft_buf_size/2+1; i++){
 	spectrum[i] = out[i][0]/fft_buf_size;
       }
       // Compute the MFCC filterbank
@@ -99,7 +101,9 @@ vector<int> getMFCCs(int num_samples, int samplerate){
       for(coeff = 0; coeff < WORD_SIZE; coeff++) {
 	double curCoeff = GetCoefficient(spectrum, samplerate, 48, 128, coeff);
 	mfcc_raw[coeff] = curCoeff;
+	//cout << curCoeff << ",";
       }
+      //cout << endl;
       
       // Find the closest label in the vocab
       words_out.push_back(applyVocab(mfcc_raw));
@@ -109,9 +113,8 @@ vector<int> getMFCCs(int num_samples, int samplerate){
 }
 
 void audioCallback(const rost_audio::AudioRawConstPtr &msg){
-  // Can do this better!
   for (int i = 0; i < msg->data.size(); i++){
-    iQ.push_back(msg->data[i]);
+    iQ.push_back(((double) msg->data[i]*2.0/MAX) - 1.0);
   }
   vector <int> words = getMFCCs(msg->samplerate, msg->samplerate);
   vector <int> pose;
