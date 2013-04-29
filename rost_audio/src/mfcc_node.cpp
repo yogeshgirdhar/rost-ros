@@ -129,6 +129,7 @@ void audioCallback(const rost_audio::AudioRawConstPtr &msg){
     seq++;
     words_msg.seq = seq;
     words_msg.header.seq = seq;
+    words_msg.observation_pose.push_back(seq);
     words_pub.publish(words_msg);
   }
 }
@@ -136,6 +137,7 @@ void audioCallback(const rost_audio::AudioRawConstPtr &msg){
 int main(int argc, char *argv[]){
   ros::init(argc, argv, "audio_words");
   ros::NodeHandle nh("");
+  ros::NodeHandle nhp("~");
   
   // Load the vocab
   FILE * vocab_f;
