@@ -54,8 +54,9 @@ int main(int argc, char**argv){
   ros::init(argc, argv, "rost_1d");
   ros::NodeHandle *nh = new ros::NodeHandle("~");
 
-  double alpha, beta, gamma, tau;//, G_width_space;
+  double alpha, beta, gamma, k_tau, p_refine_last_observation;//, G_width_space;
   int G_time, G_max, num_threads;
+  bool polled_refine;
   nh->param<int>("K", K, 16); //number of topics
   nh->param<int>("G_max", G_max,0); //max neighborhood size 0=no limit
   nh->param<int>("V", V,1500); //vocabulary size
@@ -63,10 +64,11 @@ int main(int argc, char**argv){
   nh->param<double>("alpha", alpha,0.1);
   nh->param<double>("beta", beta,0.1);
   nh->param<double>("gamma", gamma,0.0);
-  nh->param<double>("tau", tau,2.0);  //beta(1,tau) is used to pick cells for refinement
+  nh->param<double>("tau", k_tau,2.0);  //beta(1,tau) is used to pick cells for refinement
   nh->param<int>("num_threads", num_threads,2);  //beta(1,tau) is used to pick cells for refinement
   nh->param<int>("G_time", G_time,8);
-
+  nh->param<double>("p_refine_last_observation", p_refine_last_observation, 0.5);  //probability of refining last observation
+  nh->param<bool>("polled_refine", polled_refine,false);
 
   ROS_INFO("Starting online topic modeling: K=%d, alpha=%f, beta=%f, gamma=%f",K,alpha,beta,gamma);
 
@@ -81,16 +83,33 @@ int main(int argc, char**argv){
 
   rost = new ROST<int,neighbors<int>, hash<int> > (V, K, alpha, beta, G_time, hash<int>());
   last_pose = -1;
-  cerr<<"Processing words online."<<endl;
-  atomic<bool> stop;   stop.store(false);
-  auto workers =  parallel_refine_online(rost, tau, num_threads, &stop);
 
-  cerr<<"Spinning..."<<endl;
-  ros::spin();
-  stop.store(true);  //signal workers to stop
-  for(auto t:workers){  //wait for them to stop
-    t->join();
+
+
+
+
+  if(polled_refine){ //refine when requested    
+    ROS_INFO("Topics will be refined on request.");
+    ros::spin();
   }
+  else{ //refine automatically
+    ROS_INFO("Topics will be refined online.");
+    atomic<bool> stop;   stop.store(false);
+    //    auto workers =  parallel_refine_online(rost, k_tau, num_threads, &stop);
+    auto workers =  parallel_refine_online2(rost, k_tau,  p_refine_last_observation, 1, num_threads, &stop);
+
+    ros::MultiThreadedSpinner spinner(2);
+    cerr<<"Spinning..."<<endl;
+    //pause(paused); //does not work!!
+    //ros::spin();
+    spinner.spin();
+    stop.store(true);  //signal workers to stop
+    for(auto t:workers){  //wait for them to stop
+      t->join();
+    }
+  }
+
+
   delete rost;
   return 0;
 }

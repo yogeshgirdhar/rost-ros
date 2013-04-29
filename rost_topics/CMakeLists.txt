@@ -70,7 +70,7 @@ endif()
 #  endif()
 #endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -D_GLIBCXX_USE_NANOSLEEP")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -D_GLIBCXX_USE_NANOSLEEP")
 
 if(BUILD_CLI_TOOLS)
   set(Boost_USE_STATIC_LIBS   ON)

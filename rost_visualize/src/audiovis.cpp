@@ -25,13 +25,19 @@ void perplexity_callback(const rost_common::Perplexity::Ptr& msg){
   cv::waitKey(5);  
 }
 
-void words_callback(const rost_common::WordObservation::ConstPtr&  z){
+void topics_callback(const rost_common::WordObservation::ConstPtr&  z){
+  vector<float> hist = calc_hist(z->words, z->vocabulary_size);
+  cv::Mat out_img = draw_barchart(hist, 600, 300, cv::Scalar(255,255,255));
 
-  cv::Mat out_img = draw_topic_hist(z,600,300);
   cv::imshow("topic histogram", out_img);
   cv::waitKey(5); 
+}
 
-
+void words_callback(const rost_common::WordObservation::ConstPtr&  z){
+  vector<float> hist = calc_hist(z->words, z->vocabulary_size, 0);
+  cv::Mat out_img = draw_barchart_sparse(hist, 600, 300, cv::Scalar(255,255,255), cv::Scalar(255,128,128) );
+  cv::imshow("word histogram", out_img);
+  cv::waitKey(5); 
 }
 
 
@@ -42,17 +48,19 @@ void topic_weight_callback(const rost_common::TopicWeights::ConstPtr&  msg){
 }
 
 
+
 int main(int argc, char**argv){
   ros::init(argc, argv, "viewer");
   ros::NodeHandle *nhp = new ros::NodeHandle("~");
   ros::NodeHandle *nh = new ros::NodeHandle("");
 
-  bool show_topics, show_local_surprise, show_perplexity;
-  string image_topic_name;
+  bool show_topics, show_words, show_perplexity;
   nhp->param<bool>("topics", show_topics, true);
+  nhp->param<bool>("words", show_words, false);
   nhp->param<bool>("perplexity", show_perplexity, true);
 
-  ros::Subscriber word_sub = nh->subscribe("topics", 1, words_callback);
+  ros::Subscriber word_sub = nh->subscribe("words", 1, words_callback);
+  ros::Subscriber topic_sub = nh->subscribe("topics", 1, topics_callback);
   ros::Subscriber topic_weight_sub = nh->subscribe("topic_weight", 1, topic_weight_callback);
   ros::Subscriber perplexity_sub;
 
