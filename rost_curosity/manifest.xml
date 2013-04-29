@@ -1,0 +1,16 @@
+<package>
+  <description brief="rost_curosity">
+    Topic model based curosity scoring of a region
+
+
+  </description>
+  <author>Yogesh Alok Girdhar</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url> </url>
+  <depend package="roscpp"/>
+  <depend package="rost_common"/>
+
+</package>
+
+
