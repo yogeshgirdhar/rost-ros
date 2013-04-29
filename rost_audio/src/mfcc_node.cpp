@@ -29,6 +29,7 @@ double hamming[FFT_BUF_SIZE];
 
 double ** vocab;
 int vocab_size;
+int seq;
 deque<double> iQ;
 
 ros::Publisher words_pub;
@@ -50,11 +51,11 @@ double euDist(double * v1, double * v2, int vec_length){
 
 int applyVocab(double * mfcc){
   int i;
-  int best_d = -1;
+  double best_d = -1;
   int best_label = -1;
   for (i = 0; i < vocab_size; i++){
-    int d = euDist(mfcc, vocab[i], WORD_SIZE);
-    if (best_d < 0 or d < best_d){
+    double d = euDist(mfcc, vocab[i], WORD_SIZE);
+    if (best_d < 0 or d <= best_d){
       best_d = d;
       best_label = i;
     }
@@ -125,6 +126,9 @@ void audioCallback(const rost_audio::AudioRawConstPtr &msg){
     words_msg.source = "audio";
     words_msg.vocabulary_begin = 0;
     words_msg.vocabulary_size = vocab_size;
+    seq++;
+    words_msg.seq = seq;
+    words_msg.header.seq = seq;
     words_pub.publish(words_msg);
   }
 }
@@ -135,7 +139,15 @@ int main(int argc, char *argv[]){
   
   // Load the vocab
   FILE * vocab_f;
+  if (argv[1] == NULL){
+    cout << "You must specify a vocabulary" << endl;
+    return -1;
+  }
   vocab_f = fopen(argv[1], "r");
+  if (vocab_f == NULL){
+    cout << argv[1] << " was not a valid vocabulary" << endl;
+    return -1;
+  }
   fscanf(vocab_f, "%d", &vocab_size);
   //printf("vocab size: %d\n", vocab_size);
   vocab = (double **) malloc(sizeof(double)*vocab_size*WORD_SIZE);
@@ -145,7 +157,7 @@ int main(int argc, char *argv[]){
   int i = 0;
   int label;
   while( !feof(vocab_f) && i < vocab_size){
-    //fscanf(vocab_f, "%d:", &label);
+    fscanf(vocab_f, "%d:", &label);
     for (int j = 0; j < WORD_SIZE; j++){
 	float curCoeff;
 	fscanf(vocab_f, "%f", &curCoeff);
@@ -155,10 +167,12 @@ int main(int argc, char *argv[]){
     //printf("\n");
     i++;
   }
+  cout << "Read " << i << " words from the vocabulary" << endl;
   fclose(vocab_f);
   
   // Initialize the hamming window (applied before doing the fft)  
   initWindow();
+  seq = 0;
   words_pub = nh.advertise<rost_common::WordObservation>("words", 1);
   ros::Subscriber audio_sub = nh.subscribe("audio", 1, audioCallback);
   ros::spin();

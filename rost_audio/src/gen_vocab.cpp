@@ -128,11 +128,11 @@ int main(int argc, char * argv[]){
         double *wav;
         sf = sf_open(fname, SFM_READ, &info);
         if (sf == NULL) {
-            printf("Failed to open the file.\n");
+            cout << "Failed to open the file." << endl;
             return(-1);
         }
         if(info.channels != 1){
-            printf("Only tested on single channel audio.\n");
+            cout << "Only tested on single channel audio." << endl;
             return(-1);
         }
         samplerate = info.samplerate;
