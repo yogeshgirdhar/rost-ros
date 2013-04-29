@@ -21,9 +21,9 @@ namespace audio_transport
       RosGstCapture()
       {
         // The bitrate at which to encode the audio
-        ros::param::param<int>("~samplerate", samplerate, 44100);
-	ros::param::param<string>("~audiosource", source_string, "");
-        std::cout << samplerate << std::endl;
+	ros::NodeHandle _nhp("~");
+        _nhp.param<int>("samplerate", samplerate, 44100);
+	_nhp.param<string>("audiosource", source_string, "");
 
         _pub = _nh.advertise<rost_audio::AudioRaw>("audio", 10, true);
 
@@ -42,12 +42,13 @@ namespace audio_transport
 	g_signal_connect( G_OBJECT(_sink), "new-buffer", 
 			  G_CALLBACK(onNewBuffer), this);
 
-	if (source_string.compare("") == 0) {
+	if (source_string.compare("") == 0 or source_string.compare("alsasrc") == 0) {
 	  _source = gst_element_factory_make("alsasrc", "source");
 	}
 	else {
 	  _source = gst_element_factory_make("filesrc", "source");
 	  g_object_set(G_OBJECT(_source), "location", source_string.c_str(), NULL);
+	  cout << "Using " << source_string << " as audio source" << endl;
 	}
         _convert = gst_element_factory_make("audioconvert", "convert");
 
@@ -107,6 +108,15 @@ namespace audio_transport
 
 int main (int argc, char **argv)
 {
+  if (argv[1] != NULL && strcmp(argv[1], "--help") == 0){
+    cout << endl;
+    cout << "Usage: rosrun rost_audio audiotransport" << endl;
+    cout << "Parameters: " << endl;
+    cout << "    _samplerate (int), default 44100" << endl;
+    cout << "    _audiosource (string), default, alsasrc, if otherwise specifies an audio file" << endl;
+    cout << endl;
+    return -1;
+  }
   ros::init(argc, argv, "audio_capture");
   gst_init(&argc, &argv);
 
