@@ -13,11 +13,13 @@
 #include "draw_local_surprise.hpp"
 #include "draw_plot.hpp"
 #include "draw_topic_hist.hpp"
+#include "video_writer.hpp"
+
 using namespace std;
 namespace enc = sensor_msgs::image_encodings;
 map<unsigned, cv::Mat> image_cache;
-string vout_topicppx, vout_topics;
-cv::VideoWriter vwriter_topicppx, vwriter_topics;
+string vout_topicppx, vout_topics, vout_images;
+ImageSeqVideoWriter vwriter_topicppx, vwriter_topics, vwriter_images;
 double vout_rate;
 
 ScorePlot perplexity_plot;
@@ -45,16 +47,22 @@ void image_callback(const sensor_msgs::ImageConstPtr& msg){
 void words_callback(const rost_common::WordObservation::ConstPtr&  z){
   cv::Mat img = image_cache[z->seq];
   if(img.empty()) return;
-  cv::Mat out_img = draw_keypoints(z, img);
+  cv::Mat img_grey;
+  cv::cvtColor(img,img_grey,CV_BGR2GRAY);
+  cv::Mat img_grey_3c;
+  cv::cvtColor(img_grey,img_grey_3c,CV_GRAY2BGR);
+  //  cv::Mat channels[3]={img_grey,img_grey,img_grey};
+  //  cv::merge(channels,3,img_grey_3c);
+
+  cv::Mat out_img = draw_keypoints(z, img_grey_3c);
   cv::imshow("z->source", out_img);
   cv::waitKey(5); 
 
   if(!vout_topics.empty()){
-    if(!vwriter_topics.isOpened())
-      //      vwriter_topics.open(vout_topics,CV_FOURCC('M','J','P','G'), vout_rate,out_img.size());
-      vwriter_topics.open(vout_topics,CV_FOURCC('I','Y','U','V'), vout_rate,out_img.size());
-
     vwriter_topics << out_img;
+  }
+  if(!vout_images.empty()){
+    vwriter_images << img;
   }
 
 }
@@ -67,10 +75,10 @@ void local_surprise_callback(const rost_common::LocalSurprise::ConstPtr&  msg){
   cv::waitKey(5);  
 
   if(!vout_topicppx.empty()){
-    if(!vwriter_topicppx.isOpened())
+    //if(!vwriter_topicppx.isOpened())
       //vwriter_topicppx.open(vout_topicppx,CV_FOURCC('M','J','P','G'), vout_rate,out_img.size());
-      vwriter_topicppx.open(vout_topicppx,CV_FOURCC('I','Y','U','V'), vout_rate,out_img.size());
-
+    //      vwriter_topicppx.open(vout_topicppx,CV_FOURCC('I','Y','U','V'), vout_rate,out_img.size());
+    
     vwriter_topicppx << out_img;
   }
 
@@ -104,6 +112,7 @@ int main(int argc, char**argv){
   nhp->param<bool>("perplexity", show_perplexity, true);
   nhp->param<string>("vout_topicppx", vout_topicppx, "");
   nhp->param<string>("vout_topics", vout_topics, "");
+  nhp->param<string>("vout_images", vout_images, "");
   nhp->param<double>("vout_rate", vout_rate, 5.0);
 
   ROS_INFO("reading images from: %s", image_topic_name.c_str());
@@ -121,6 +130,17 @@ int main(int argc, char**argv){
     local_surprise_sub = nh->subscribe("local_surprise", 1, local_surprise_callback);
   if(show_perplexity)
     perplexity_sub = nh->subscribe("perplexity", 1, perplexity_callback);
+
+
+  if(!vout_images.empty()){
+    vwriter_images.open(vout_images);
+  }
+  if(!vout_topics.empty()){
+    vwriter_topics.open(vout_topics);
+  }
+  if(!vout_topicppx.empty()){
+    vwriter_topicppx.open(vout_topicppx);
+  }
 
 
   ros::spin();
