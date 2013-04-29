@@ -38,13 +38,18 @@ namespace audio_transport
 	GError ** error;
 	char config[256];
 	if (source_string.compare("") == 0 or source_string.compare("alsasrc") == 0) {
-	  sprintf(config, "alsasrc ! audioconvert ! audio/x-raw-float, width=32, rate=%d, channels=1", samplerate);
+	  sprintf(config, "alsasrc ! audioconvert ! audio/x-raw-int, format=U16BE, rate=%d, channels=1", samplerate);
 	}
 	else {
 	  cout << "Using " << source_string.c_str() << " as audio source" << endl;
-	  sprintf(config, "filesrc location=%s ! decodebin ! audioconvert ! audio/x-raw-float, width=32, rate=%d, channels=1", source_string.c_str(), samplerate);
+	  sprintf(config, "filesrc location=%s ! decodebin ! audioconvert ! audio/x-raw-int, format=U16BE, rate=%d, channels=1", source_string.c_str(), samplerate);
 	}
 	_pipeline = gst_parse_launch(config, error);
+	if (_pipeline == NULL)
+	{
+	  std::cout << "DEAD!" << std::endl;
+	  exit(-1);
+	}
 	GstPad *outpad = gst_bin_find_unlinked_pad(GST_BIN(_pipeline), GST_PAD_SRC);
 	g_assert(outpad);
 	GstElement *outelement = gst_pad_get_parent_element(outpad);
