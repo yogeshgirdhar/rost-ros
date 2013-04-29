@@ -1,0 +1,149 @@
+#include <ros/ros.h>
+#include <rost_common/WordObservation.h>
+#include <rost_common/LocalSurprise.h>
+#include <rost_common/Perplexity.h>
+#include <rost_common/TopicWeights.h>
+
+#include <image_transport/image_transport.h>
+#include <opencv/cv.h>
+#include <opencv/highgui.h>
+#include <cv_bridge/cv_bridge.h>
+#include <sensor_msgs/image_encodings.h>
+#include "draw_keypoints.hpp"
+#include "draw_local_surprise.hpp"
+#include "draw_plot.hpp"
+#include "draw_topic_hist.hpp"
+#include "video_writer.hpp"
+
+using namespace std;
+namespace enc = sensor_msgs::image_encodings;
+map<unsigned, cv::Mat> image_cache;
+string vout_topicppx, vout_topics, vout_images;
+ImageSeqVideoWriter vwriter_topicppx, vwriter_topics, vwriter_images;
+double vout_rate;
+
+ScorePlot perplexity_plot;
+void perplexity_callback(const rost_common::Perplexity::Ptr& msg){
+  cv::Mat img = perplexity_plot.push(msg->perplexity);
+  cv::imshow("Perplexity", img);
+  cv::waitKey(5);  
+}
+
+void image_callback(const sensor_msgs::ImageConstPtr& msg){
+
+  cv_bridge::CvImagePtr cv_ptr;
+  try{
+    cv_ptr = cv_bridge::toCvCopy(msg, enc::BGR8);
+  }
+  catch (cv_bridge::Exception& e){
+    ROS_ERROR("cv_bridge exception: %s", e.what());
+  }
+
+  image_cache[msg->header.seq]=cv_ptr->image.clone();
+  if(image_cache.size()>100)
+    image_cache.erase(image_cache.begin());
+}
+
+void words_callback(const rost_common::WordObservation::ConstPtr&  z){
+  cv::Mat img = image_cache[z->seq];
+  if(img.empty()) return;
+  cv::Mat img_grey;
+  cv::cvtColor(img,img_grey,CV_BGR2GRAY);
+  cv::Mat img_grey_3c;
+  cv::cvtColor(img_grey,img_grey_3c,CV_GRAY2BGR);
+  //  cv::Mat channels[3]={img_grey,img_grey,img_grey};
+  //  cv::merge(channels,3,img_grey_3c);
+
+  cv::Mat out_img = draw_keypoints(z, img_grey_3c);
+  cv::imshow("z->source", out_img);
+  cv::waitKey(5); 
+
+  if(!vout_topics.empty()){
+    vwriter_topics << out_img;
+  }
+  if(!vout_images.empty()){
+    vwriter_images << img;
+  }
+
+}
+
+void local_surprise_callback(const rost_common::LocalSurprise::ConstPtr&  msg){
+  cv::Mat img = image_cache[msg->seq];
+  if(img.empty()) return;
+  cv::Mat out_img = draw_local_surprise(msg,img);
+  cv::imshow("Look!", out_img);
+  cv::waitKey(5);  
+
+  if(!vout_topicppx.empty()){
+    //if(!vwriter_topicppx.isOpened())
+      //vwriter_topicppx.open(vout_topicppx,CV_FOURCC('M','J','P','G'), vout_rate,out_img.size());
+    //      vwriter_topicppx.open(vout_topicppx,CV_FOURCC('I','Y','U','V'), vout_rate,out_img.size());
+    
+    vwriter_topicppx << out_img;
+  }
+
+}
+
+void cell_ppx_callback(const rost_common::LocalSurprise::ConstPtr&  msg){
+  cv::Mat img = image_cache[msg->seq];
+  if(img.empty()) return;
+  cv::Mat out_img = draw_local_surprise(msg,img);
+  cv::imshow("cell perplexity", out_img);
+  cv::waitKey(5);  
+}
+
+void topic_weight_callback(const rost_common::TopicWeights::ConstPtr&  msg){
+  cv::Mat out_img = draw_barchart(msg->weight,640,240,cv::Scalar(255,255,255));
+  cv::imshow("topic weights", out_img);
+  cv::waitKey(5);  
+}
+
+
+int main(int argc, char**argv){
+  ros::init(argc, argv, "viewer");
+  ros::NodeHandle *nhp = new ros::NodeHandle("~");
+  ros::NodeHandle *nh = new ros::NodeHandle("");
+
+  bool show_topics, show_local_surprise, show_perplexity;
+  string image_topic_name;
+  nhp->param<bool>("topics", show_topics, true);
+  nhp->param<bool>("local_surprise", show_local_surprise, true);
+  nhp->param<string>("image", image_topic_name, "/image");
+  nhp->param<bool>("perplexity", show_perplexity, true);
+  nhp->param<string>("vout_topicppx", vout_topicppx, "");
+  nhp->param<string>("vout_topics", vout_topics, "");
+  nhp->param<string>("vout_images", vout_images, "");
+  nhp->param<double>("vout_rate", vout_rate, 5.0);
+
+  ROS_INFO("reading images from: %s", image_topic_name.c_str());
+  image_transport::ImageTransport it(*nh);
+  image_transport::Subscriber image_sub = it.subscribe(image_topic_name, 1, image_callback);
+  ros::Subscriber word_sub = nh->subscribe("topics", 1, words_callback);
+  ros::Subscriber local_surprise_sub = nh->subscribe("local_surprise", 1, local_surprise_callback);
+  ros::Subscriber cell_ppx_sub = nh->subscribe("cell_perplexity", 1, cell_ppx_callback);
+  ros::Subscriber topic_weight_sub = nh->subscribe("topic_weight", 1, topic_weight_callback);
+  ros::Subscriber perplexity_sub;
+
+  if(show_topics)
+    word_sub = nh->subscribe("topics", 1, words_callback);
+  if(show_local_surprise)
+    local_surprise_sub = nh->subscribe("local_surprise", 1, local_surprise_callback);
+  if(show_perplexity)
+    perplexity_sub = nh->subscribe("perplexity", 1, perplexity_callback);
+
+
+  if(!vout_images.empty()){
+    vwriter_images.open(vout_images);
+  }
+  if(!vout_topics.empty()){
+    vwriter_topics.open(vout_topics);
+  }
+  if(!vout_topicppx.empty()){
+    vwriter_topicppx.open(vout_topicppx);
+  }
+
+
+  ros::spin();
+
+  return 0;
+}

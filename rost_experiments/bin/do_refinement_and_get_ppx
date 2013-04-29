@@ -1,0 +1,19 @@
+#!/bin/bash
+inner_iter=20000
+basename=$1
+outer_iter=$2
+rep=10
+
+
+for j in `seq ${rep}`; do
+    filename="${basename}_${j}.txt"
+    rm $filename
+    for i in `seq ${outer_iter}`; do
+	echo $i
+	rosservice call /rost/get_model_perplexity | sed -e 's/\,/\ /g' -e 's/[a-z]*//g' -e 's/[\:\[\]]*//g' -e 's/\]//g' >>$filename
+	rosservice call /rost/refine ${inner_iter}
+    done
+    echo "reshuffling"
+    rosservice call /rost/reshuffle_topics
+done
+
