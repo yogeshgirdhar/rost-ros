@@ -21,22 +21,23 @@ extern "C"{
 
 using namespace std;
 
-#define FFT_BUF_SIZE 4096 // 4096~92 ms, also 2^12 samples
-#define HOP_SIZE (FFT_BUF_SIZE/2)
 #define WORD_SIZE 13
 
-double hamming[FFT_BUF_SIZE];
 
 double ** vocab;
 int vocab_size;
+int fft_buf_size;
+int fft_hop_size;
 int seq;
+double *hamming;
+
 deque<double> iQ;
 
 ros::Publisher words_pub;
 
 void initWindow(void){
-  for (int i = 0; i < FFT_BUF_SIZE; i++){
-    hamming[i] = 0.54 - 0.46*cos((2*M_PI*i)/(FFT_BUF_SIZE - 1));
+  for (int i = 0; i < fft_buf_size; i++){
+    hamming[i] = 0.54 - 0.46*cos((2*M_PI*i)/(fft_buf_size - 1));
   }
 }
 
@@ -65,32 +66,32 @@ int applyVocab(double * mfcc){
 
 vector<int> getMFCCs(int num_samples, int samplerate){
   vector<int> words_out;
-  // Need at least FFT_BUF_SIZE elements
-  if (num_samples > FFT_BUF_SIZE && num_samples <= iQ.size()){
+  // Need at least fft_buf_size elements
+  if (num_samples > fft_buf_size && num_samples <= iQ.size()){
     // Set up the fft
     fftw_complex *out;
     fftw_plan plan;
-    double spectrum[FFT_BUF_SIZE];
-    double * in = (double*) fftw_malloc(sizeof(double)*FFT_BUF_SIZE);
-    out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*(FFT_BUF_SIZE/2+1));
-    plan = fftw_plan_dft_r2c_1d(FFT_BUF_SIZE, in, out, FFTW_MEASURE);
+    double spectrum[fft_buf_size];
+    double * in = (double*) fftw_malloc(sizeof(double)*fft_buf_size);
+    out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*(fft_buf_size/2+1));
+    plan = fftw_plan_dft_r2c_1d(fft_buf_size, in, out, FFTW_MEASURE);
     
     int pos = 0;
-    while (iQ.size() > FFT_BUF_SIZE && pos < num_samples){
+    while (iQ.size() > fft_buf_size && pos < num_samples){
       int i;
       // Take each time slot and get a windowed copy of it
-      for (i = 0; i < FFT_BUF_SIZE; i++){
+      for (i = 0; i < fft_buf_size; i++){
 	in[i] = iQ[i]*hamming[i];
       }
-      for (i = 0; i < HOP_SIZE; i++){
+      for (i = 0; i < fft_hop_size; i++){
 	iQ.pop_front();
       }
-      pos += HOP_SIZE;
+      pos += fft_hop_size;
      
       // Run the fft
       fftw_execute(plan);
-      for (i = 0; i < FFT_BUF_SIZE/2+1; i++){
-	spectrum[i] = out[i][0]/FFT_BUF_SIZE;
+      for (i = 0; i < fft_hop_size+1; i++){
+	spectrum[i] = out[i][0]/fft_buf_size;
       }
       // Compute the MFCC filterbank
       double mfcc_raw[WORD_SIZE];
@@ -135,19 +136,38 @@ void audioCallback(const rost_audio::AudioRawConstPtr &msg){
 }
 
 int main(int argc, char *argv[]){
+  if (argv[1] != NULL && strcmp(argv[1], "--help") == 0){
+    cout << endl;
+    cout << "Usage: rosrun rost_audio" << endl;
+    cout << "Parameters:" << endl;
+    cout << "    _vocab (string), default MontrealSounds2k.txt" << endl;
+    cout << "    _fft_buf_size (int), default 4096" << endl;
+    cout << "    _overlap (double), default 0.5, must be < 1, starts lagging when < 0.15" << endl;
+    cout << endl;
+    return -1;
+  }
   ros::init(argc, argv, "audio_words");
   ros::NodeHandle nh("");
   ros::NodeHandle nhp("~");
   
+  string vocab_name;
+  nhp.param<string>("vocab", vocab_name, "MontrealSounds2k.txt");
+  cout << vocab_name << ": name" << endl;
+  
+  // By Default ~ 92 ms or 2^12 samples
+  nhp.param<int>("fft_buf_size",fft_buf_size, 4096);
+  cout << fft_buf_size << ": buffer size" << endl;
+  
+  double overlap;
+  nhp.param<double>("overlap",overlap, 0.5);
+  fft_hop_size = overlap * fft_buf_size;
+  cout << fft_hop_size << ": hop size" << endl;
+  
   // Load the vocab
   FILE * vocab_f;
-  if (argv[1] == NULL){
-    cout << "You must specify a vocabulary" << endl;
-    return -1;
-  }
-  vocab_f = fopen(argv[1], "r");
+  vocab_f = fopen(vocab_name.c_str(), "r");
   if (vocab_f == NULL){
-    cout << argv[1] << " was not a valid vocabulary" << endl;
+    cout << vocab_name << " was not a valid vocabulary" << endl;
     return -1;
   }
   fscanf(vocab_f, "%d", &vocab_size);
@@ -173,6 +193,7 @@ int main(int argc, char *argv[]){
   fclose(vocab_f);
   
   // Initialize the hamming window (applied before doing the fft)  
+  hamming  = (double *) malloc(fft_buf_size * sizeof(double));
   initWindow();
   seq = 0;
   words_pub = nh.advertise<rost_common::WordObservation>("words", 1);
