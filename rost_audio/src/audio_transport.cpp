@@ -18,23 +18,16 @@ namespace audio_transport
   class RosGstCapture
   {
     public: 
-      RosGstCapture()
+      RosGstCapture(ros::NodeHandle nhp)
       {
         // The bitrate at which to encode the audio
-	ros::NodeHandle _nhp("~");
-        _nhp.param<int>("samplerate", samplerate, 44100);
-	_nhp.param<string>("audiosource", source_string, "");
+        nhp.param<int>("samplerate", samplerate, 44100);
+	nhp.param<string>("audiosource", source_string, "");
 
         _pub = _nh.advertise<rost_audio::AudioRaw>("audio", 10, true);
 
         _loop = g_main_loop_new(NULL, false);
-        _pipeline = gst_pipeline_new("ros_pipeline");
-
-	_caps = gst_caps_new_simple("audio/x-raw-float", "rate", G_TYPE_INT, samplerate, "channels", G_TYPE_INT, 1, "width", G_TYPE_INT, 32, NULL);
-	char * caps_s;
-	caps_s = gst_caps_to_string(_caps);
-	std::cout << caps_s << std::endl;
-	
+        	
         // We create the sink first, just for convenience
 	_sink = gst_element_factory_make("appsink", "sink");
 	g_object_set(G_OBJECT(_sink), "emit-signals", true, NULL);
@@ -42,26 +35,35 @@ namespace audio_transport
 	g_signal_connect( G_OBJECT(_sink), "new-buffer", 
 			  G_CALLBACK(onNewBuffer), this);
 
+	GError ** error;
+	char config[256];
 	if (source_string.compare("") == 0 or source_string.compare("alsasrc") == 0) {
-	  _source = gst_element_factory_make("alsasrc", "source");
+	  sprintf(config, "alsasrc ! audioconvert ! audio/x-raw-float, width=32, rate=%d, channels=1", samplerate);
 	}
 	else {
-	  _source = gst_element_factory_make("filesrc", "source");
-	  g_object_set(G_OBJECT(_source), "location", source_string.c_str(), NULL);
-	  cout << "Using " << source_string << " as audio source" << endl;
+	  cout << "Using " << source_string.c_str() << " as audio source" << endl;
+	  sprintf(config, "filesrc location=%s ! decodebin ! audioconvert ! audio/x-raw-float, width=32, rate=%d, channels=1", source_string.c_str(), samplerate);
 	}
-        _convert = gst_element_factory_make("audioconvert", "convert");
+	_pipeline = gst_parse_launch(config, error);
+	GstPad *outpad = gst_bin_find_unlinked_pad(GST_BIN(_pipeline), GST_PAD_SRC);
+	g_assert(outpad);
+	GstElement *outelement = gst_pad_get_parent_element(outpad);
+	g_assert(outelement);
+	gst_object_unref(outpad);
+	if (!gst_bin_add(GST_BIN(_pipeline), _sink)) {
+	    fprintf(stderr, "gst_bin_add() failed\n"); // TODO: do some unref
+	    gst_object_unref(outelement);
+	    gst_object_unref(_pipeline);
+	    return;
+	}
 
-        gst_bin_add_many( GST_BIN(_pipeline), _source, _convert, _sink, NULL );
-
-	bool success = gst_element_link_filtered(_convert, _sink, _caps);
-	gst_caps_unref(_caps);
-	if (success) std::cout << "caps worked" << std::endl;
-	else std::cout << "caps failed" << std::endl;
-
-        success = gst_element_link(_source, _convert);
-	if (success) std::cout << "link worked" << std::endl;
-	else std::cout << "link failed" << std::endl;
+	if (!gst_element_link(outelement, _sink)){
+	  fprintf(stderr, "GStreamer: cannot link outelement(\"%s\") -> sink\n", gst_element_get_name(outelement));
+	  gst_object_unref(outelement);
+	  gst_object_unref(_pipeline);
+	  return;
+	}
+	gst_object_unref(outelement);
 
 	gst_element_set_state(GST_ELEMENT(_pipeline), GST_STATE_PLAYING);
 
@@ -100,8 +102,7 @@ namespace audio_transport
 
       boost::thread _gst_thread;
 
-      GstElement *_pipeline, *_source, *_sink, *_convert;
-      GstCaps *_caps;
+      GstElement *_pipeline, *_sink;
       GMainLoop *_loop;
   };
 }
@@ -119,7 +120,8 @@ int main (int argc, char **argv)
   }
   ros::init(argc, argv, "audio_capture");
   gst_init(&argc, &argv);
-
-  audio_transport::RosGstCapture server;
+  
+  ros::NodeHandle nhp("~");
+  audio_transport::RosGstCapture server(nhp);
   ros::spin();
 }
