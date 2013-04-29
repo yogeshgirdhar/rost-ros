@@ -27,8 +27,9 @@
   <param name="num_threads" value="$(arg threads)"/>
 </node>
 
-
+<arg name="file" default=""/>
 <node pkg="rost_audio" type="audio_transport" name="source">
+  <param name="audiosource" type="string" value="$(arg file)"/>
 </node>
 
 <node pkg="rost_audio" type="audio_words" name="audio_words">
