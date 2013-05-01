@@ -101,9 +101,9 @@ vector<int> getMFCCs(int num_samples, int samplerate){
       for(coeff = 0; coeff < WORD_SIZE; coeff++) {
 	double curCoeff = GetCoefficient(spectrum, samplerate, 48, 128, coeff);
 	mfcc_raw[coeff] = curCoeff;
-	//cout << curCoeff << ",";
+	cout << curCoeff << ",";
       }
-      //cout << endl;
+      cout << endl;
       
       // Find the closest label in the vocab
       words_out.push_back(applyVocab(mfcc_raw));

@@ -42,7 +42,7 @@ namespace audio_transport
 	}
 	else {
 	  cout << "Using " << source_string.c_str() << " as audio source" << endl;
-	  sprintf(config, "filesrc location=%s ! decodebin ! audioconvert ! audio/x-raw-int, format=U16BE, rate=%d, channels=1", source_string.c_str(), samplerate);
+	  sprintf(config, "filesrc location=%s ! decodebin ! audioconvert ! audio/x-raw-int, format=S16BE, rate=%d, channels=1", source_string.c_str(), samplerate);
 	}
 	_pipeline = gst_parse_launch(config, error);
 	if (_pipeline == NULL)
