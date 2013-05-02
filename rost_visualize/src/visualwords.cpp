@@ -75,10 +75,6 @@ void local_surprise_callback(const rost_common::LocalSurprise::ConstPtr&  msg){
   cv::waitKey(5);  
 
   if(!vout_topicppx.empty()){
-    //if(!vwriter_topicppx.isOpened())
-      //vwriter_topicppx.open(vout_topicppx,CV_FOURCC('M','J','P','G'), vout_rate,out_img.size());
-    //      vwriter_topicppx.open(vout_topicppx,CV_FOURCC('I','Y','U','V'), vout_rate,out_img.size());
-    
     vwriter_topicppx << out_img;
   }
 

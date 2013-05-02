@@ -41,6 +41,8 @@ rosbuild_add_library(mfcc libmfcc/libmfcc.c)
 rosbuild_add_executable(audio_words src/mfcc_node.cpp)
 target_link_libraries(audio_words fftw3 ${GST_LIBRARIES} mfcc)
 
+rosbuild_add_executable(csv_words src/csv_words.cpp)
+
 rosbuild_add_executable(audio_transport src/audio_transport.cpp)
 target_link_libraries(audio_transport ${GST_LIBRARIES})
 rosbuild_link_boost(audio_transport thread)
