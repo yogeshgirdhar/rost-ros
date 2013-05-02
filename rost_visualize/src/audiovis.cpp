@@ -16,8 +16,8 @@
 #include "video_writer.hpp"
 
 using namespace std;
-
-
+string vout_topicppx, vout_topics, vout_words;
+ImageSeqVideoWriter vwriter_topics, vwriter_words;
 ScorePlot perplexity_plot;
 void perplexity_callback(const rost_common::Perplexity::Ptr& msg){
   cv::Mat img = perplexity_plot.push(msg->perplexity);
@@ -30,7 +30,10 @@ void topics_callback(const rost_common::WordObservation::ConstPtr&  z){
   cv::Mat out_img = draw_barchart(hist, 600, 300, cv::Scalar(255,255,255));
 
   cv::imshow("topic histogram", out_img);
-  cv::waitKey(5); 
+  cv::waitKey(5);
+  if(!vout_topics.empty()){
+    vwriter_topics << out_img;
+  } 
 }
 
 void words_callback(const rost_common::WordObservation::ConstPtr&  z){
@@ -38,6 +41,9 @@ void words_callback(const rost_common::WordObservation::ConstPtr&  z){
   cv::Mat out_img = draw_barchart_sparse(hist, 600, 300, cv::Scalar(255,255,255), cv::Scalar(255,128,128) );
   cv::imshow("word histogram", out_img);
   cv::waitKey(5); 
+  if(!vout_words.empty()){
+    vwriter_words << out_img;
+  }
 }
 
 
@@ -58,6 +64,8 @@ int main(int argc, char**argv){
   nhp->param<bool>("topics", show_topics, true);
   nhp->param<bool>("words", show_words, false);
   nhp->param<bool>("perplexity", show_perplexity, true);
+  nhp->param<string>("vout_topics", vout_topics, "");
+  nhp->param<string>("vout_words", vout_words, "");
 
   ros::Subscriber word_sub = nh->subscribe("words", 1, words_callback);
   ros::Subscriber topic_sub = nh->subscribe("topics", 1, topics_callback);
@@ -66,6 +74,13 @@ int main(int argc, char**argv){
 
   if(show_perplexity)
     perplexity_sub = nh->subscribe("perplexity", 1, perplexity_callback);
+
+  if(!vout_topics.empty()){
+    vwriter_topics.open(vout_topics);
+  }
+  if(!vout_words.empty()){
+    vwriter_words.open(vout_words);
+  }
 
   ros::spin();
 
