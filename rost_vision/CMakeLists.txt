@@ -16,16 +16,16 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 rosbuild_init()
 
 
-include(ExternalProject)
+#include(ExternalProject)
 
-set(EXT_PREFIX "${PROJECT_SOURCE_DIR}/ext")
-set(FLANN_CMAKE_ARGS -DBUILD_MATLAB_BINDINGS=OFF -DBUILD_PYTHON_BINDINGS=OFF -DBUILD_CUDA_LIB=OFF -DBUILD_C_BINDINGS=OFF -DCMAKE_INSTALL_PREFIX=${EXT_PREFIX})
+#set(EXT_PREFIX "${PROJECT_SOURCE_DIR}/ext")
+#set(FLANN_CMAKE_ARGS -DBUILD_MATLAB_BINDINGS=OFF -DBUILD_PYTHON_BINDINGS=OFF -DBUILD_CUDA_LIB=OFF -DBUILD_C_BINDINGS=OFF -DCMAKE_INSTALL_PREFIX=${EXT_PREFIX})
 
-ExternalProject_Add(FLANN_EXT
-  PREFIX ${EXT_PREFIX}
-  URL ${CMAKE_CURRENT_SOURCE_DIR}/ext/flann.tar.gz
-  CMAKE_ARGS ${FLANN_CMAKE_ARGS}
-)
+#ExternalProject_Add(FLANN_EXT
+#  PREFIX ${EXT_PREFIX}
+#  URL ${CMAKE_CURRENT_SOURCE_DIR}/ext/flann.tar.gz
+#  CMAKE_ARGS ${FLANN_CMAKE_ARGS}
+#)
 
 
 
@@ -43,17 +43,19 @@ rosbuild_gensrv()
 
 set(CMAKE_MODULE_PATH  "${PROJECT_SOURCE_DIR}/cmake")
 find_package(OpenCV REQUIRED )
+find_package(Flann REQUIRED )
 #find_package(Flann)
 
-include_directories(${PROJECT_SOURCE_DIR})
-include_directories("${PROJECT_SOURCE_DIR}/ext/include")
-if(APPLE)
-	set(FLANN_LIB "${PROJECT_SOURCE_DIR}/ext/lib/libflann_cpp.dylib")
-else()
-	set(FLANN_LIB "${PROJECT_SOURCE_DIR}/ext/lib/libflann_cpp.so")
-endif()
+#include_directories(${PROJECT_SOURCE_DIR})
+#include_directories("${PROJECT_SOURCE_DIR}/ext/include")
+#if(APPLE)
+#	set(FLANN_LIB "${PROJECT_SOURCE_DIR}/ext/lib/libflann_cpp.dylib")
+#else()
+#	set(FLANN_LIB "${PROJECT_SOURCE_DIR}/ext/lib/libflann_cpp.so")
+#endif()
 
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -D_GLIBCXX_USE_NANOSLEEP")
 
 #common commands for building c++ executables and libraries
 #rosbuild_add_library(${PROJECT_NAME} src/example.cpp)
