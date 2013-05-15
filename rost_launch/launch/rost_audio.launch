@@ -1,0 +1,40 @@
+<launch>
+<arg name="vis.enable" default="true"/>
+<node pkg="rost_visualize" type="audiovis" name="audiovis" if="$(arg vis.enable)">
+</node>
+
+
+<arg name="topics.enable" default="true"/>
+<arg name="K" default="16"/>
+<arg name="V" value="2000"/>
+<arg name="alpha" default="0.1"/>
+<arg name="beta" default="0.1"/>
+<arg name="tau" default="2.0"/>
+<arg name="G.time" default="4"/>
+<arg name="topics.polled_refine" default="false"/>
+<arg name="topics.p_refine_last_observation" default="0.2"/>
+<arg name="threads" default="4"/>
+
+<node pkg="rost_topics" type="rost_1d_node" name="rost" if="$(arg topics.enable)">
+  <param name="K" value="$(arg K)"/>
+  <param name="V" value="$(arg V)"/>
+  <param name="alpha" value="$(arg alpha)"/>
+  <param name="beta" value="$(arg beta)"/>
+  <param name="tau" value="$(arg tau)"/>
+  <param name="G_time" value="$(arg G.time)"/>  
+  <param name="p_refine_last_observation" value="$(arg topics.p_refine_last_observation)"/>
+  <param name="polled_refine" value="$(arg topics.polled_refine)"/>
+  <param name="num_threads" value="$(arg threads)"/>
+</node>
+
+<arg name="file" default=""/>
+<node pkg="rost_audio" type="audio_transport" name="source">
+  <param name="audiosource" type="string" value="$(arg file)"/>
+</node>
+
+<node pkg="rost_audio" type="audio_words" name="audio_words">
+  <param name="vocab" type="string" value="$(find rost_audio)/MontrealSounds2k.txt"/>
+</node>
+
+
+</launch>
