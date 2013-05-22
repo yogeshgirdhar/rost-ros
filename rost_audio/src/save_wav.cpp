@@ -10,18 +10,32 @@
 
 using namespace std;
 
-double MAX = pow(2, 16);
 SNDFILE *sf;
 SF_INFO *info;
 
 void audioCallback(const rost_audio::AudioRawConstPtr &msg){
-  double * sample = (double *) malloc(sizeof(double) * msg->data.size());
+  int consec_zeros = 0;
+  int size = 0;
+  while (size < msg->data.size()){
+    if (msg->data[size] == 0){
+      consec_zeros++;
+      if (consec_zeros >= 5){
+        size -= 5;
+        break;
+      }
+    }
+    else {
+      consec_zeros = 0;
+    }
+    size++;
+  }
+  double * sample = (double *) malloc(sizeof(double) * size);
   for (int i = 0; i < msg->data.size(); i++){
-    sample[i] = (((double) msg->data[i]*2.0/MAX) - 1.0);
+    sample[i] = ((double) msg->data[i]);
   }
 
   // write the entire buffer to the file
-  sf_count_t count = sf_write_double ( sf, &sample[0], msg->data.size()) ;
+  sf_count_t count = sf_write_double ( sf, &sample[0], msg->data.size() );
 
   // force write to disk
   sf_write_sync( sf );
@@ -52,5 +66,7 @@ int main(int argc, char *argv[]){
   sf = sf_open( outfile_name.c_str(), SFM_WRITE, info );  
   
   ros::Subscriber audio_sub = nh.subscribe("audio", 1, audioCallback);
+
   ros::spin();
+  sf_close(sf);
 }
