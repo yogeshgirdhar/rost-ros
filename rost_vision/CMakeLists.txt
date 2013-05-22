@@ -55,7 +55,7 @@ find_package(Flann REQUIRED )
 #endif()
 
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -D_GLIBCXX_USE_NANOSLEEP")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -D_GLIBCXX_USE_NANOSLEEP")
 
 #common commands for building c++ executables and libraries
 #rosbuild_add_library(${PROJECT_NAME} src/example.cpp)
@@ -63,7 +63,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -D_GLIBCXX_USE_NANOSLEEP")
 #rosbuild_add_boost_directories()
 
 #rosbuild_add_executable(image_source src/image_source.cpp)
-rosbuild_add_executable(bow src/bow.cpp)
+
+set_source_files_properties(src/gabor_words.cpp PROPERTIES COMPILE_FLAGS -std=c++11)
+rosbuild_add_executable(bow src/bow.cpp src/gabor_words.cpp)
+
+
 rosbuild_add_executable(bowtk src/bowtk.cpp src/image_source.cpp)
 rosbuild_add_executable(orbtk src/orbtk.cpp src/image_source.cpp src/binary_features.cpp)
 rosbuild_add_executable(image_cache src/image_cache.cpp)
