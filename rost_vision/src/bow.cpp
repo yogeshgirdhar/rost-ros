@@ -332,7 +332,7 @@ int main(int argc, char**argv){
   nhp.param<bool>("use_intensity",use_intensity, false);
   nhp.param<int>("color_cell_size",color_cell_size, 32);
 
-  nhp.param<bool>("use_gabor",use_gabor, true);
+  nhp.param<bool>("use_gabor",use_gabor, false);
   nhp.param<int>("gabor_cell_size",gabor_cell_size, 64);
 
   nhp.param<bool>("use_lbp",use_lbp, false);
