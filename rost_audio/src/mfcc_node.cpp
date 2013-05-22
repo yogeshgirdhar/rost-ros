@@ -31,7 +31,6 @@ int fft_buf_size;
 int fft_hop_size;
 int seq;
 double *hamming;
-double MAX = pow(2, 16);
 
 deque<double> iQ;
 
@@ -112,9 +111,9 @@ vector<int> getMFCCs(int num_samples, int samplerate){
   return words_out;
 }
 
-void audioCallback(const rost_audio::AudioRawConstPtr &msg){
+void audioCallback(const rost_audio::AudioRawConstPtr &msg){  
   for (int i = 0; i < msg->data.size(); i++){
-    iQ.push_back(((double) msg->data[i]*2.0/MAX) - 1.0);
+    iQ.push_back((double) msg->data[i]);
   }
   vector <int> words = getMFCCs(msg->samplerate, msg->samplerate);
   vector <int> pose;

@@ -9,6 +9,7 @@ ROST_t * rost=NULL;
 pose_t last_pose;
 size_t last_refine_count;
 vector<int> last_word_pose, last_word_scale;
+ros::Time last_word_timestamp;
 int K, V; //number of topic types, number of word types
 ros::Publisher topics_pub; 
 
@@ -24,6 +25,7 @@ void broadcast_topics(pose_t pose, vector<int>& word_pose, vector<int>& word_sca
   z->vocabulary_begin = 0;
   z->vocabulary_size  = K;  
   z->words            = rost->get_topics_for_pose(pose);
+  z->header.stamp     = last_word_timestamp;
   topics_pub.publish(z);
   cerr<<"Publish topics "<<pose<<": "<<z->words.size()<<endl;
 }
@@ -42,6 +44,7 @@ void words_callback(const rost_common::WordObservation::ConstPtr&  words){
     last_word_pose = words->word_pose;
     last_word_scale = words->word_scale;
     last_refine_count = refine_count;
+    last_word_timestamp = words->header.stamp;
   }
   else{
     last_word_pose.insert(last_word_pose.end(), words->word_pose.begin(), words->word_pose.end());
