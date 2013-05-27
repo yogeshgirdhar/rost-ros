@@ -43,7 +43,7 @@ rosbuild_gensrv()
 
 set(CMAKE_MODULE_PATH  "${PROJECT_SOURCE_DIR}/cmake")
 find_package(OpenCV REQUIRED )
-find_package(Flann REQUIRED )
+find_package(flann REQUIRED )
 #find_package(Flann)
 
 #include_directories(${PROJECT_SOURCE_DIR})
@@ -64,7 +64,7 @@ find_package(Flann REQUIRED )
 
 #rosbuild_add_executable(image_source src/image_source.cpp)
 
-set_source_files_properties(src/gabor_words.cpp PROPERTIES COMPILE_FLAGS -std=c++11)
+set_source_files_properties(src/gabor_words.cpp PROPERTIES COMPILE_FLAGS -std=c++0x)
 rosbuild_add_executable(bow src/bow.cpp src/gabor_words.cpp)
 
 
