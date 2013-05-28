@@ -1,9 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <sndfile.h>
-#include <fftw3.h>
 #include <iostream>
 #include <fstream>
+#include <sndfile.h>
+#include <fftw3.h>
+#include <ros/ros.h>
 
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
@@ -18,171 +17,200 @@ extern "C"{
 
 using namespace std;
 
-#define FFT_BUF_SIZE 4096 // 4096~92 ms, also 2^12 samples
-#define HOP_SIZE (FFT_BUF_SIZE/2)
 #define WORD_SIZE 13
 
-double hamming[FFT_BUF_SIZE];
+double *hamming;
 
-void initWindow(void){
-    for (int i = 0; i < FFT_BUF_SIZE; i++){
-        hamming[i] = 0.54 - 0.46*cos((2*M_PI*i)/(FFT_BUF_SIZE - 1));
+vector<vector<double> > kMeansVocab(vector<vector<vector<double> > > vocab_raw, int vocab_size, int totalWords) {
+  int num_files = vocab_raw.size();
+  cv::Mat vocab_raw_flat(totalWords, WORD_SIZE, CV_32FC1);
+  cv::Mat labels;
+  cv::Mat centers(vocab_size, WORD_SIZE, CV_32FC1);
+  
+  int wordsAssigned = 0;
+  for (int i = 0; i < num_files; i++) {
+    for (uint j = 0; j < vocab_raw[i].size(); j++) {
+      for (int x = 0; x < WORD_SIZE; x++) {
+	vocab_raw_flat.at<float>(wordsAssigned, x) = (float)vocab_raw[i][j][x];
+      }
+    wordsAssigned++;
     }
+  }
+  
+  cv::kmeans(vocab_raw_flat, vocab_size, labels, cvTermCriteria( CV_TERMCRIT_ITER+CV_TERMCRIT_EPS, 30, FLT_EPSILON ), 3, cv::KMEANS_PP_CENTERS, centers);
+
+  int i;
+  vector<vector<double> > centers_out;
+  for (i = 0; i < centers.rows; i++) {
+    vector<double> center;
+    for (int j = 0; j < WORD_SIZE; j++) {
+      center.push_back( (double) centers.at<float>(i, j) );
+    }
+    centers_out.push_back(center);
+  }
+  
+  return centers_out;
 }
 
-vector< vector<double> > calcMFCC(double ** wav_p, int blocks_read, int mfcc_order, int sr=44100){
-    cout << "Generating MFCCs for " << blocks_read << " blocks." << endl;
-    //COMPUTE THE FFTs
-    fftw_complex *out;
-    double *in;
-    double *wav = *wav_p;
-    vector< vector<double> > mfccResult;
-    fftw_plan p;
+void initWindow(int size) {
+  for (int i = 0; i < size; i++) {
+    hamming[i] = 0.54 - 0.46*cos((2*M_PI*i)/(size - 1));
+  }
+}
 
-    double spectrum[FFT_BUF_SIZE];
-    double curCoeff;
+vector<vector<double> > calcMFCC(double ** wav_p, int blocks_read, int fft_buf_size, int fft_hop_size, int sr=44100) {
+  fftw_complex *out;
+  double *in;
+  double *wav = *wav_p;
+  vector<vector<double> > mfccResult;
+  fftw_plan p;
 
-    in = (double*) fftw_malloc(sizeof(double)*FFT_BUF_SIZE);
-    out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*(FFT_BUF_SIZE/2+1));
-    p = fftw_plan_dft_r2c_1d(FFT_BUF_SIZE, in, out, FFTW_MEASURE);
+  double spectrum[fft_buf_size];
+  double curCoeff;
 
-    int pos;
-    int win_num = 0;
+  in = (double*) fftw_malloc(sizeof(double)*fft_buf_size);
+  out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*(fft_buf_size/2+1));
+  p = fftw_plan_dft_r2c_1d(fft_buf_size, in, out, FFTW_MEASURE);
 
-    for (pos = 0; pos < blocks_read - FFT_BUF_SIZE; pos += HOP_SIZE){
-        win_num++;
-        int i;
-        for (i = 0; i < FFT_BUF_SIZE; i++){
-            in[i] = wav[pos+i]*hamming[i];
-        }
-        fftw_execute(p);
+  int pos;
+  for (pos = 0; pos < blocks_read - fft_buf_size; pos += fft_hop_size) {
+      vector<double> curMFCC;
+      int i;
+      for (i = 0; i < fft_buf_size; i++) {
+	  in[i] = wav[pos+i]*hamming[i];
+      }
+      
+      fftw_execute(p);
+      
+      for (i = 0; i < fft_buf_size/2+1; i++) {
+	  spectrum[i] = out[i][0]/fft_buf_size;
+      }
+      
+      int coeff;
+      for(coeff = 0; coeff < WORD_SIZE; coeff++) {
+	  curCoeff = GetCoefficient(spectrum, sr, 48, 128, coeff);
+	  curMFCC.push_back(curCoeff);
+      }
+      
+      mfccResult.push_back(curMFCC);
+      cout << "\r" << (float)pos/blocks_read << " pct complete" << endl;
+  }
+  
+  return mfccResult;
+}
 
-        for (i = 0; i < FFT_BUF_SIZE/2+1; i++){
-            spectrum[i] = out[i][0]/FFT_BUF_SIZE;
-        }
-
-        int coeff;
-        vector<double> curMFCC(WORD_SIZE, 0.0);
-        for(coeff = 0; coeff < mfcc_order; coeff++) {
-            curCoeff = GetCoefficient(spectrum, sr, 48, 128, coeff);
-            curMFCC[coeff] = curCoeff;
-        }
-
-        mfccResult.push_back(curMFCC);
-        //if (pos % printInterval == 0){
-          cout << "\rCompleted " << pos << " blocks. ( " << 100*((double)pos/(double)blocks_read) << " %)";
-        //}
+void printVocab(vector<vector<double> > vocab, string fname) {
+  ofstream vocab_file;
+  vocab_file.open(fname.c_str());
+  
+  vocab_file << vocab.size() << endl;
+  for (uint i = 0; i < vocab.size(); i++) {
+    vocab_file << i << ":";
+    for (int j = 0; j < WORD_SIZE; j++) {
+      vocab_file << vocab[i][j] << " ";
     }
+    vocab_file << "\n";
+  }
+    
+  vocab_file.close();
+}
+
+int main(int argc, char * argv[]) {
+  
+    vector<vector<double> > mfccResult;
+    vector<vector<vector<double> > > allMfccResult;
+  
+  if (argv[1] != NULL && strcmp(argv[1], "--help") == 0) {
     cout << endl;
-    return mfccResult;
+    cout << "Usage: rosrun rost_audio genMFCCVocab" << endl;
+    cout << "Parameters:" << endl;
+    cout << "    _wav_names (list of strings), the wav files which will be used to generate the vocab. must be specified" << endl;
+    cout << "    _vocab_name (string), the text file to save the vocab to. must be specified" << endl;
+    cout << "    _vocab_size (int), default 2000" << endl;
+    cout << "    _fft_buf_size (int), default 4096" << endl;
+    cout << "    _overlap (double), default 0.5, must be < 1, starts lagging when < 0.15" << endl;
+    cout << endl;
+    return -1;
+  }
+  
+  ros::init(argc, argv, "genMFCCVocab");
+  ros::NodeHandle nh("");
+  ros::NodeHandle nhp("~");
+  
+  string vocab_name;
+  XmlRpc::XmlRpcValue wav_names;
+  int vocab_size;
+  int fft_buf_size;
+  double overlap;
+  int fft_hop_size;
+  
+  nhp.param<string>("vocab_name", vocab_name, "./newVocab.txt");
+  
+  nhp.param<int>("vocab_size", vocab_size, 2000);
+  
+  nhp.getParam("wav_names", wav_names);
+  ROS_ASSERT(wav_names.getType() == XmlRpc::XmlRpcValue::TypeArray);
+  for (int i = 0; i < wav_names.size(); ++i) {
+    ROS_ASSERT(wav_names[i].getType() == XmlRpc::XmlRpcValue::TypeString);
+  }
+  
+  // By Default ~ 92 ms or 2^12 samples
+  nhp.param<int>("fft_buf_size",fft_buf_size, 4096);
+  
+  nhp.param<double>("overlap",overlap, 0.5);
+  fft_hop_size = overlap * fft_buf_size;
+  
+  // Initialize the hamming window (applied before doing the fft)  
+  hamming  = (double *) malloc(fft_buf_size * sizeof(double));
+  initWindow(fft_buf_size);
+  
+  // MAIN LOOP
+  // For each specified wav file
+  for (int i = 0; i < wav_names.size(); ++i) {
+    cout << "Opening " << wav_names[i] << endl;
+    SF_INFO info;
+    SNDFILE *sf;
+    int blocks_read;
+    double *wav;
+    sf = sf_open( (static_cast<string>(wav_names[i])).c_str(), SFM_READ, &info );
+    
+    if (sf == NULL) {
+	cout << "Failed to open the file." << endl;
+	return(-1);
+    }
+    
+    if(info.channels != 1) {
+	cout << "Only tested on single channel audio." << endl;
+	return(-1);
+    }
+    
+    wav = (double *) malloc(info.frames*sizeof(double));
+    blocks_read = sf_read_double(sf, wav, info.frames);
+    
+    sf_close(sf);
+    cout << "Read " << blocks_read << " blocks from " << wav_names[i] << endl;
+
+    mfccResult = calcMFCC(&wav, info.frames, fft_buf_size, fft_hop_size, info.samplerate);
+    allMfccResult.push_back(mfccResult);
+    cout << "\nComputed " << mfccResult.size() << " samples" << endl;
+    
+    free(wav);
+    
+  }
+  
+  cout << "Computed MFCCs for " << allMfccResult.size() << " files" << endl;
+  
+  int totalWords = 0;
+  for (uint i = 0; i < allMfccResult.size(); i++) {
+      totalWords += allMfccResult[i].size();
+  }
+  
+  cout << totalWords << " MFCCs were calculated all together." << endl;
+  
+  vector<vector<double> > vocab;
+  if ( totalWords > vocab_size ) { 
+    printVocab( kMeansVocab(allMfccResult, vocab_size, totalWords), vocab_name ); 
+  }
+
+  return 0;
 }
-
-vector< vector<double> > kMeansVocab(vector< vector<double> > in, int k){
-    int word_size = in[0].size();
-    int num_words = in.size();
-
-    cv::Mat inFlat(num_words, word_size, CV_32FC1);
-    cv::Mat labels;
-    cv::Mat centers(k, word_size, CV_32FC1);
-
-    for (int i = 0; i < in.size(); i++){
-        for (int j = 0; j < word_size; j++){
-            inFlat.at<float>(i, j) = (float)in[i][j];
-        }
-    }
-
-    cv::kmeans(inFlat, k, labels, cvTermCriteria( CV_TERMCRIT_ITER+CV_TERMCRIT_EPS, 30, FLT_EPSILON ), 3, cv::KMEANS_PP_CENTERS, centers);
-
-    //find all the centroids
-    vector<double> empty(word_size, 0.0);
-    vector<vector<double> > centroids(k, empty);
-    vector <int> numsAssigned(k, 1);
-    for (int i = 0; i < num_words; i++){
-        int j = labels.at<int>(i, 1);
-        for (int x = 0; x < word_size; x++){
-            centroids[j][x] += (double) inFlat.at<float>(i, x);
-        }
-        numsAssigned[j]++;
-    }
-    for (int i = 0; i < k; i++){
-        for (int x = 0; x < word_size; x++){
-            centroids[i][x] /= (double) numsAssigned[i];
-        }
-    }
-
-    return centroids;
-}
-
-int main(int argc, char * argv[]){
-    //For reading the wav file
-    initWindow();
-    vector< vector<double> > mfccResult;
-    int samplerate;
-    int numWords = atoi(argv[2]);
-    for (int i = 3; i < argc; i++){
-        char *fname = argv[i];
-        cout << "Opening " << fname << endl;
-        SF_INFO info;
-        SNDFILE *sf;
-        int blocks_read;
-        double *wav;
-        sf = sf_open(fname, SFM_READ, &info);
-        if (sf == NULL) {
-            cout << "Failed to open the file." << endl;
-            return(-1);
-        }
-        if(info.channels != 1){
-            cout << "Only tested on single channel audio." << endl;
-            return(-1);
-        }
-        samplerate = info.samplerate;
-        wav = (double *) malloc(info.frames*sizeof(double));
-        blocks_read = sf_read_double(sf, wav, info.frames);
-        sf_close(sf);
-        cout << "Read " << blocks_read << " blocks from " << fname << endl;
-        vector< vector<double> > this_result = calcMFCC(&wav, info.frames, WORD_SIZE, info.samplerate);
-        mfccResult.insert(mfccResult.end(), this_result.begin(), this_result.end());
-        free(wav);
-    }
-
-    char rawFName[128];
-    strcpy(rawFName, argv[1]);
-    strcat(rawFName, "_raw.txt");
-    ofstream outfileraw;
-    outfileraw.open(rawFName);
-    cout << "Writing Raw Output to " << rawFName << endl;
-    double time = 0;
-    double interval = (double)HOP_SIZE/samplerate;
-    for (int i = 0; i < mfccResult.size(); i++){
-        outfileraw << time << ":";
-        for (int j = 0; j < WORD_SIZE; j++){
-            outfileraw << mfccResult[i][j] << " ";
-        }
-        outfileraw << endl;
-        time += interval;
-    }
-    outfileraw.close();
-
-    if (mfccResult.size() > numWords){
-        cout << "Clustering ( k=" << numWords << " )" << endl;
-        vector< vector<double> > allClusteredResults = kMeansVocab(mfccResult, numWords);
-        char vocabFName[128];
-        strcpy(vocabFName, argv[1]);
-        strcat(vocabFName, ".txt");
-        cout << "Writing FinalVocab to " << vocabFName << endl;
-        ofstream outfile;
-        outfile.open(vocabFName);
-	outfile << allClusteredResults.size() << endl;
-        for (int i = 0; i < allClusteredResults.size(); i++){
-            outfile << i << ":";
-            for (int j = 0; j < WORD_SIZE; j++){
-                outfile << mfccResult[i][j] << " ";
-            }
-            outfile << endl;
-        }
-        outfile.close();
-    }
-
-    return 0;
-}
-
