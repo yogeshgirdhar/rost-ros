@@ -1,0 +1,14 @@
+<package>
+  <description brief="rost_experimentes">
+
+    Scripts and launch files for producing plottable data
+
+  </description>
+  <author>Yogesh Girdhar</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/rost_experiments</url>
+  <depend package="rost_common"/>
+</package>
+
+

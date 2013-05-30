@@ -1,0 +1,73 @@
+<launch>
+<arg name="vis.enable" default="true"/>
+<arg name="vout.topics" default=""/>
+<arg name="vout.words" default=""/>
+<node pkg="rost_visualize" type="audiovis" name="audiovis" if="$(arg vis.enable)">
+  <param name="vout_topics" value="$(arg vout.topics)"/>
+  <param name="vout_words" value="$(arg vout.words)"/>
+</node>
+
+
+<arg name="topics.enable" default="true"/>
+<arg name="K" default="16"/>
+<arg name="V" value="2000"/>
+<arg name="alpha" default="0.1"/>
+<arg name="beta" default="0.1"/>
+<arg name="tau" default="2.0"/>
+<arg name="G.time" default="4"/>
+<arg name="topics.polled_refine" default="false"/>
+<arg name="topics.p_refine_last_observation" default="0.2"/>
+<arg name="threads" default="4"/>
+
+<node pkg="rost_topics" type="rost_1d_node" name="rost" if="$(arg topics.enable)">
+  <param name="K" value="$(arg K)"/>
+  <param name="V" value="$(arg V)"/>
+  <param name="alpha" value="$(arg alpha)"/>
+  <param name="beta" value="$(arg beta)"/>
+  <param name="tau" value="$(arg tau)"/>
+  <param name="G_time" value="$(arg G.time)"/>  
+  <param name="p_refine_last_observation" value="$(arg topics.p_refine_last_observation)"/>
+  <param name="polled_refine" value="$(arg topics.polled_refine)"/>
+  <param name="num_threads" value="$(arg threads)"/>
+</node>
+
+<arg name="sum.enable" default="true"/>
+<arg name="S" default="9"/>
+<arg name="summary.threshold" default="auto"/>
+<node pkg="rost_summarizer" type="summarizer" name="summarizer" if="$(arg sum.enable)">
+  <param name="S" value="$(arg S)"/>
+  <param name="topics" value="true" if="$(arg topics.enable)"/>
+  <param name="threshold" value="$(arg summary.threshold)"/>
+</node>
+
+
+<arg name="bag.enable" default="false"/>
+<arg name="bag.name" default="S$(arg S)_K$(arg K)_alpha$(arg alpha)_beta$(arg beta)_G$(arg G.time)"/>
+<arg name="bag.prefix" default="/tmp/rost_"/>
+<arg name="bag.topics" default="words topics summary summary_observations perplexity local_surprise"/>
+<node pkg="rosbag" type="record" name="record" args="--output-name=$(arg bag.prefix)$(arg bag.name).bag  $(arg bag.topics) --bz2" if="$(arg bag.enable)">
+</node>
+
+
+
+
+<arg name="transport.enable" default="true"/>
+<arg name="file" default=""/>
+<node pkg="rost_audio" type="audio_transport" name="source" if="$(arg transport.enable)">
+  <param name="audiosource" type="string" value="$(arg file)"/>
+</node>
+
+<arg name="csvwords.enable" default="false"/>
+<arg name="rate" default="1.0"/>
+<node pkg="rost_audio" type="csv_words" name="cvs_words" required="true" if="$(arg csvwords.enable)">
+  <param name="file" type="string" value="$(arg file)"/>
+  <param name="V" value="$(arg V)"/>
+  <param name="rate" value="$(arg rate)"/>
+</node>
+
+<node pkg="rost_audio" type="audio_words" name="audio_words" if="$(arg transport.enable)" >
+  <param name="vocab" type="string" value="$(find rost_audio)/MontrealSounds2k.txt"/>
+</node>
+
+
+</launch>
