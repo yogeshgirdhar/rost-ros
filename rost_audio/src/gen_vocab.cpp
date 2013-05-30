@@ -3,6 +3,7 @@
 #include <sndfile.h>
 #include <fftw3.h>
 #include <ros/ros.h>
+#include <boost/program_options.hpp>
 
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
@@ -16,6 +17,8 @@ extern "C"{
 #endif
 
 using namespace std;
+
+namespace po = boost::program_options;
 
 #define WORD_SIZE 13
 
@@ -93,7 +96,7 @@ vector<vector<double> > calcMFCC(double ** wav_p, int blocks_read, int fft_buf_s
       }
       
       mfccResult.push_back(curMFCC);
-      cout << "\r" << (float)pos/blocks_read << " pct complete" << endl;
+      cout << "\r" << "Computing MFCCs...(" << (int) ( (float)pos/blocks_read*100 ) << "%)    ";
   }
   
   return mfccResult;
@@ -102,6 +105,8 @@ vector<vector<double> > calcMFCC(double ** wav_p, int blocks_read, int fft_buf_s
 void printVocab(vector<vector<double> > vocab, string fname) {
   ofstream vocab_file;
   vocab_file.open(fname.c_str());
+  
+  cout << "Writing results to " << fname << endl;
   
   vocab_file << vocab.size() << endl;
   for (uint i = 0; i < vocab.size(); i++) {
@@ -115,50 +120,45 @@ void printVocab(vector<vector<double> > vocab, string fname) {
   vocab_file.close();
 }
 
+
 int main(int argc, char * argv[]) {
   
-    vector<vector<double> > mfccResult;
-    vector<vector<vector<double> > > allMfccResult;
+  vector<vector<double> > mfccResult;
+  vector<vector<vector<double> > > allMfccResult;
   
-  if (argv[1] != NULL && strcmp(argv[1], "--help") == 0) {
-    cout << endl;
-    cout << "Usage: rosrun rost_audio genMFCCVocab" << endl;
-    cout << "Parameters:" << endl;
-    cout << "    _wav_names (list of strings), the wav files which will be used to generate the vocab. must be specified" << endl;
-    cout << "    _vocab_name (string), the text file to save the vocab to. must be specified" << endl;
-    cout << "    _vocab_size (int), default 2000" << endl;
-    cout << "    _fft_buf_size (int), default 4096" << endl;
-    cout << "    _overlap (double), default 0.5, must be < 1, starts lagging when < 0.15" << endl;
-    cout << endl;
-    return -1;
-  }
-  
-  ros::init(argc, argv, "genMFCCVocab");
-  ros::NodeHandle nh("");
-  ros::NodeHandle nhp("~");
-  
-  string vocab_name;
-  XmlRpc::XmlRpcValue wav_names;
+  string vocab_name = "./newVocab";
   int vocab_size;
   int fft_buf_size;
   double overlap;
-  int fft_hop_size;
+  vector<string> wav_names;
   
-  nhp.param<string>("vocab_name", vocab_name, "./newVocab.txt");
+  po::options_description desc("Allowed options");
+  desc.add_options()
+    ("help", "produce help message")
+    ("wav_names", po::value<vector<string> >(&wav_names)->multitoken(), "A list of the wav files to use as source audio for the vocabulary. Must be specified.")
+    ("vocab_name", po::value<string>(&vocab_name), "The text file to save the vocab to")
+    ("vocab_size", po::value<int>(&vocab_size)->default_value(2000), "Number of distinct words in the output vocabulary")
+    ("fft_buf_size", po::value<int>(&fft_buf_size)->default_value(4096), "Number of samples taken into account when calculating the fft and mfcc")
+    ("overlap", po::value<double>(&overlap)->default_value(0.5), "Amount of overlap between successive mfccs. Must be < 1")
+  ;
   
-  nhp.param<int>("vocab_size", vocab_size, 2000);
+  po::variables_map vm;
+  po::store(po::parse_command_line(argc, argv, desc), vm);
+  po::notify(vm);
   
-  nhp.getParam("wav_names", wav_names);
-  ROS_ASSERT(wav_names.getType() == XmlRpc::XmlRpcValue::TypeArray);
-  for (int i = 0; i < wav_names.size(); ++i) {
-    ROS_ASSERT(wav_names[i].getType() == XmlRpc::XmlRpcValue::TypeString);
+  if ( vm.count("help")  ) { 
+    cout << desc << endl; 
+    return -1; 
   }
   
-  // By Default ~ 92 ms or 2^12 samples
-  nhp.param<int>("fft_buf_size",fft_buf_size, 4096);
+  int fft_hop_size = fft_buf_size*overlap;
   
-  nhp.param<double>("overlap",overlap, 0.5);
-  fft_hop_size = overlap * fft_buf_size;
+  cout << "vocab_name: " << vocab_name << endl;
+  cout << "wav_names: ";
+  for (uint i = 0; i < wav_names.size(); i++) {
+    cout << wav_names[i] << " ";
+  }
+  cout << endl;
   
   // Initialize the hamming window (applied before doing the fft)  
   hamming  = (double *) malloc(fft_buf_size * sizeof(double));
@@ -172,7 +172,7 @@ int main(int argc, char * argv[]) {
     SNDFILE *sf;
     int blocks_read;
     double *wav;
-    sf = sf_open( (static_cast<string>(wav_names[i])).c_str(), SFM_READ, &info );
+    sf = sf_open( wav_names[i].c_str(), SFM_READ, &info );
     
     if (sf == NULL) {
 	cout << "Failed to open the file." << endl;
@@ -198,17 +198,14 @@ int main(int argc, char * argv[]) {
     
   }
   
-  cout << "Computed MFCCs for " << allMfccResult.size() << " files" << endl;
-  
   int totalWords = 0;
   for (uint i = 0; i < allMfccResult.size(); i++) {
       totalWords += allMfccResult[i].size();
   }
-  
-  cout << totalWords << " MFCCs were calculated all together." << endl;
-  
+    
   vector<vector<double> > vocab;
-  if ( totalWords > vocab_size ) { 
+  if ( totalWords > vocab_size ) {
+    cout << "Quantizing MFCCs from " << totalWords << " samples to " << vocab_size << " centroids. " << endl;
     printVocab( kMeansVocab(allMfccResult, vocab_size, totalWords), vocab_name ); 
   }
 

@@ -29,6 +29,8 @@ rosbuild_genmsg()
 #rosbuild_add_executable(example examples/example.cpp)
 #target_link_libraries(example ${PROJECT_NAME})
 
+rosbuild_add_boost_directories()
+
 find_package(OpenCV REQUIRED )
 
 find_package(PkgConfig)
@@ -42,5 +44,6 @@ rosbuild_add_executable(audio_words src/mfcc_wav.cpp)
 target_link_libraries(audio_words fftw3 sndfile mfcc)
 
 rosbuild_add_executable(gen_vocab src/gen_vocab.cpp)
+rosbuild_link_boost(gen_vocab program_options)
 target_link_libraries(gen_vocab ${OpenCV_LIBS} fftw3 sndfile mfcc)
 
