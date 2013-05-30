@@ -8,6 +8,7 @@
 #include "rost_common/Summary.h"
 #include "rost_common/SummaryObservations.h"
 #include "draw_keypoints.hpp"
+#include "video_writer.hpp"
 #include <map>
 #include<iostream>
 #include<algorithm>
@@ -21,7 +22,7 @@ set<unsigned int> summary;
 int window_w(1600), window_h(1200);
 cv::Mat window, summary_image, score_image, live_image, topics_raw_image, topics_image, topics_hist_image;
 cv::Scalar background;
-cv::VideoWriter video_writer;
+ImageSeqVideoWriter video_writer;
 bool topics_mode; // true if we are showing topics
 //summarizer::LocalSurprise::ConstPtr  local_surprise;
 
@@ -205,7 +206,13 @@ void words_callback(const rost_common::WordObservation::ConstPtr&  msg){
   if(topics_mode) return;
   if(images.find(msg->seq)!=images.end()){
     topics_raw_image = images[msg->seq];
-    cv::Mat img = draw_keypoints(msg,topics_raw_image);
+
+    cv::Mat img_grey;
+    cv::cvtColor(topics_raw_image,img_grey,CV_BGR2GRAY);
+    cv::Mat img_grey_3c;
+    cv::cvtColor(img_grey,img_grey_3c,CV_GRAY2BGR);
+
+    cv::Mat img = draw_keypoints(msg,img_grey_3c);
 
     topics_image = fit(img,window_w/4, window_h/4);
     topics_raw_image = fit(topics_raw_image,window_w/4, window_h/4);
@@ -268,7 +275,14 @@ void topics_callback(const rost_common::WordObservation::ConstPtr&  msg){
   //cerr<<"Received topic for image:"<<msg->image_seq<<endl;
   if(images.find(msg->seq)!=images.end()){
     topics_raw_image = images[msg->seq];
-    cv::Mat img = draw_keypoints(msg,topics_raw_image);
+
+    cv::Mat img_grey;
+    cv::cvtColor(topics_raw_image,img_grey,CV_BGR2GRAY);
+    cv::Mat img_grey_3c;
+    cv::cvtColor(img_grey,img_grey_3c,CV_GRAY2BGR);
+
+    cv::Mat img = draw_keypoints(msg,img_grey_3c);
+
 
     topics_image = fit(img,window_w/4, window_h/4);
     topics_raw_image = fit(topics_raw_image,window_w/4, window_h/4);
@@ -372,7 +386,8 @@ int main(int argc, char**argv){
   cv::namedWindow("Summarizer");
   
   if(!video_out.empty()){    
-    video_writer.open(video_out,CV_FOURCC('M','J','P','G'), 10,cv::Size(window_w, window_h));
+    //video_writer.open(video_out,CV_FOURCC('M','J','P','G'), 10,cv::Size(window_w, window_h));
+    video_writer.open(video_out);
   }
   update_window();
 

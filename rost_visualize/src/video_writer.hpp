@@ -14,7 +14,9 @@ public:
     opened(false),
     count(0)
   {}
-
+  bool isOpened(){
+    return opened;
+  }
   void open(string filename)
   {    
     name=filename;
