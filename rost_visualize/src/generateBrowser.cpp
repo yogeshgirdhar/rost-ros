@@ -72,7 +72,7 @@ bool copyDir(boost::filesystem::path const & source, boost::filesystem::path con
 
 map<int, int> topicsHistogram(vector<int> topics){
     map<int, int> histogram;
-    for (unsigned int i = 0; i < topics.size(); i++){
+    for (uint i = 0; i < topics.size(); i++){
         int topic = topics[i];
         if (histogram.count(topic) > 0){
             histogram[topic]++;
@@ -149,9 +149,8 @@ void saveImages(string bagname, string topicname, vector<map<int, int> > mostLik
     {
         sensor_msgs::Image::ConstPtr i = m.instantiate<sensor_msgs::Image>();
         if (i != NULL){
-            for (unsigned int topic = 0; topic < mostLikely.size(); topic++){
+            for (uint topic = 0; topic < mostLikely.size(); topic++){
                 if (mostLikely[topic].count(i->header.seq) > 0){
-                    //cout << topic << ",";
                     saveImage(i, topic, i->header.seq, path);
                 }
             }
@@ -160,7 +159,7 @@ void saveImages(string bagname, string topicname, vector<map<int, int> > mostLik
     bag.close();
 }
 
-void saveAllImages(string bagname, string topicname, char * path, int * minSeq, int * maxSeq){
+void saveAllImages(string bagname, string topicname, char * path, uint * minSeq, uint * maxSeq){
     rosbag::Bag bag(bagname);
     rosbag::View view(bag, rosbag::TopicQuery(topicname));
     BOOST_FOREACH(rosbag::MessageInstance const m, view){
@@ -212,7 +211,7 @@ map<int, map<int, float> > normalizeHistograms(map<int, map<int, int> > histogra
     return normaled;
 }
 
-void writeTopicPage(int topic, map<int, int> mostLikely, map<int, int> overallHist, map<int, map<int, float> > histograms, char *path, char * resourceroot){
+void writeTopicPage(uint topic, map<int, int> mostLikely, map<int, int> overallHist, map<int, map<int, float> > histograms, char *path, char * resourceroot){
     char page_name[90];
     sprintf(page_name, "%stopic_%d.html", path, topic);
     cout << "Writing topic " << topic << " in " << page_name << endl;
@@ -220,7 +219,7 @@ void writeTopicPage(int topic, map<int, int> mostLikely, map<int, int> overallHi
     ctemplate::TemplateDictionary dict("topic");
     std::ostringstream histdata;
     
-    for (unsigned int i = 0; i < overallHist.size(); i++){
+    for (uint i = 0; i < overallHist.size(); i++){
         histdata << "['";
         if ((i % 10) == 0) histdata << i;
 	if (i == topic) histdata << "', 0, " << overallHist[i] <<"],";
@@ -259,7 +258,7 @@ void writeAllTopicsPage(int K, vector<map<int, int> > mostLikely, map<int, int> 
     ctemplate::TemplateDictionary dict("allTopics");
     std::ostringstream histdata;
     
-    for (unsigned int i = 0; i < overallHist.size(); i++){
+    for (uint i = 0; i < overallHist.size(); i++){
         histdata << "['";
         if ((i % 10) == 0) histdata << i;
         histdata << "', " << overallHist[i] << ", 0],";
@@ -270,7 +269,7 @@ void writeAllTopicsPage(int K, vector<map<int, int> > mostLikely, map<int, int> 
     
     string output;
     
-    for (unsigned int i = 0; i < K; i++){
+    for (int i = 0; i < K; i++){
         int most = 0;
         int most_seq = 0;
         for (intint_it seq_occ = mostLikely[i].begin(); seq_occ != mostLikely[i].end(); seq_occ++){
@@ -293,7 +292,7 @@ void writeAllTopicsPage(int K, vector<map<int, int> > mostLikely, map<int, int> 
     page.close();
 }
 
-void writeAllImagesPage(char * path, map<int, map<int, float> > histograms, int minSeq, int maxSeq){
+void writeAllImagesPage(char * path, map<int, map<int, float> > histograms, uint minSeq, uint maxSeq){
     ctemplate::TemplateDictionary dict("allImages");
     
     dict.SetIntValue("MIN_SEQ", minSeq);
@@ -302,7 +301,7 @@ void writeAllImagesPage(char * path, map<int, map<int, float> > histograms, int 
     std::ostringstream histdata;
     histdata.precision(2);
     histdata << "[";
-    for (unsigned int i = 0; i < maxSeq - minSeq; i++){
+    for (uint i = 0; i < maxSeq - minSeq; i++){
       histdata << "[";
       if (histograms.count(i + minSeq) > 0){
 	  map<int, float> hist = histograms[i + minSeq];
@@ -356,7 +355,7 @@ int main(int argc, char * argv[])
     //printHistograms(histograms);
     cout << "Computing maximum likelihood images..." << endl;
     vector < map<int, int> > mostLikely;
-    for (unsigned int k = 0; k < K; k++){
+    for (int k = 0; k < K; k++){
         mostLikely.push_back(getMostLikelySeqs(k, imagesPerTopic, histograms, minSeqDif));
     }
 
@@ -379,8 +378,8 @@ int main(int argc, char * argv[])
     saveImages(argv[2], argv[3], mostLikely, dir_name1);
 
     cout << "Saving all images in " << dir_name2 << endl;
-    int minSeq = 100000;
-    int maxSeq = 0;
+    uint minSeq = 100000;
+    uint maxSeq = 0;
     saveAllImages(argv[2], argv[3], dir_name2, &minSeq, &maxSeq);
 
     char htmlroot_name[40];
@@ -402,7 +401,7 @@ int main(int argc, char * argv[])
     sprintf(topicsroot_name, "%stopics/", htmlroot_name);
     boost::filesystem::create_directories(topicsroot_name);
     cout << "Writing topic pages in " << topicsroot_name << endl;
-    for (unsigned int k = 0; k < K; k++){
+    for (int k = 0; k < K; k++){
         writeTopicPage(k, mostLikely[k], overallHist, normal_hists, topicsroot_name, resourceroot_name);
     }
 
