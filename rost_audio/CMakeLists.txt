@@ -29,6 +29,8 @@ rosbuild_genmsg()
 #rosbuild_add_executable(example examples/example.cpp)
 #target_link_libraries(example ${PROJECT_NAME})
 
+rosbuild_add_boost_directories()
+
 find_package(OpenCV REQUIRED )
 
 find_package(PkgConfig)
@@ -38,20 +40,10 @@ include_directories(${GST_INCLUDE_DIRS})
 include_directories(${PROJECT_SOURCE_DIR}/libmfcc)
 rosbuild_add_library(mfcc libmfcc/libmfcc.c)
 
-rosbuild_add_executable(audio_words src/mfcc_node.cpp)
-target_link_libraries(audio_words fftw3 ${GST_LIBRARIES} mfcc)
-
-rosbuild_add_executable(csv_words src/csv_words.cpp)
-
-rosbuild_add_executable(audio_transport src/audio_transport.cpp)
-target_link_libraries(audio_transport ${GST_LIBRARIES})
-rosbuild_link_boost(audio_transport thread)
+rosbuild_add_executable(audio_words src/mfcc_wav.cpp)
+target_link_libraries(audio_words fftw3 sndfile mfcc)
 
 rosbuild_add_executable(gen_vocab src/gen_vocab.cpp)
+rosbuild_link_boost(gen_vocab program_options)
 target_link_libraries(gen_vocab ${OpenCV_LIBS} fftw3 sndfile mfcc)
 
-rosbuild_add_executable(offline src/offline.cpp)
-target_link_libraries(offline fftw3 sndfile mfcc)
-
-rosbuild_add_executable(save_wav src/save_wav.cpp)
-target_link_libraries(save_wav sndfile)
