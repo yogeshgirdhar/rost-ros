@@ -1,25 +1,29 @@
-Requirements:
-Ubuntu 12.04 or above with ROS Fuerte and OpenCV installed
+Requirements
+=============
+Ubuntu 12.04 or above with ROS Groovy
+
+Dependencies
+------------
+ROST uses cv_image_source ROS package by default for getting images from camera or video files. To install it:
+1) hg clone https://bitbucket.org/yogeshgirdhar/cv_image_source
+2)rosmake cv_image_source
 
 
-Getting the source:
-1) hg clone ssh://username@moist.cim.mcgill.ca//home/discovery/mrl/hgrepo/girdhar/ros/rost
-2) hg clone ssh://username@moist.cim.mcgill.ca//home/discovery/mrl/hgrepo/ros/cv_image_source
+Building ROST
+-------------
+rosmake rost
 
-Building:
-3) rosmake cv_image_source
-4) rosmake rost
-
-Running on camera:
+Using ROST with camera:
+----------------------
 roslaunch rost_launch rost.launch camera:=true [options]
 
-Running on a video file:
+Using ROST with a video file:
 roslaunch rost_launch rost.launch file:=/absolute/path/of/video.mp4 [options]
 
 
 Optional arguments the the launch file(with default values shown):
 alpha:=0.1       controls the smoothness of topic distribution describing an image patch
-beta:=0.1        controls the smoothness of word distribution describing a topic
+beta:=1.0        controls the smoothness of word distribution describing a topic
 tau:=2.0         how important is present compared to past for topic refinement. 
                  1.0 => all times are equally important
                  tau > 1 => present is more important
