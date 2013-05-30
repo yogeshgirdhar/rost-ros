@@ -21,18 +21,38 @@ using namespace std;
 
 #define WORD_SIZE 13
 
+struct CalcMFCC {
+  // Parameters
+  int msg_size;
+  int fft_buf_size;
+  int fft_hop_size;
+  int samplerate;
+  
+  // Structs for computing the fft
+  double *hamming;
+  fftw_complex *fft_out;
+  double *fft_in;
+  fftw_plan p;
+  
+  // Data in
+  int cur_pos;
+  int max_length;
+  int seq;
+  double *wav_in;
+  
+  // Data out
+  int cur_label;
+};
+
 ros::Publisher words_pub;
+
+
 double ** vocab;
 int vocab_size;
-int fft_buf_size;
-int fft_hop_size;
-double *hamming;
-int seq;
-deque<int> words_out;
 
-void initWindow(void){
-  for (int i = 0; i < fft_buf_size; i++){
-    hamming[i] = 0.54 - 0.46*cos((2*M_PI*i)/(fft_buf_size - 1));
+void initWindow(double *hamming, int size){
+  for (int i = 0; i < size; i++){
+    hamming[i] = 0.54 - 0.46*cos((2*M_PI*i)/(size - 1));
   }
 }
 
@@ -59,67 +79,76 @@ int applyVocab(double * mfcc){
   return best_label;
 }
 
-void publishWord(const ros::TimerEvent&){
-  if ( words_out.empty() ) {
-    return;
-  }
+void publishWord(vector<int> labels, vector<int> poses, int seq){
   rost_common::WordObservation words_msg;
-  words_msg.words.push_back(words_out.front());
-  words_out.pop_front();
-  words_msg.word_pose.push_back(0);
-  words_msg.word_scale.push_back(1);
+  
+  words_msg.words = labels;
+  words_msg.word_pose = poses;
+  
+  for (uint i = 0; i < labels.size(); i++) {
+    words_msg.word_scale.push_back(1);
+  }
+  
   words_msg.source = "audio-offline";
   words_msg.vocabulary_begin = 0;
   words_msg.vocabulary_size = vocab_size;
-  seq++;
 
   words_msg.seq = seq;
-  words_msg.header.seq = seq;
-  words_msg.observation_pose.push_back(seq);
+  words_msg.observation_pose.push_back(poses[0]);
   words_pub.publish(words_msg);
 }
 
-void calcMFCC(double ** wav_p, int blocks_read, int mfcc_order, int sr=44100){
-    cout << "Generating MFCCs for " << blocks_read << " blocks." << endl;
-    fftw_complex *out;
-    double *in;
-    double *wav = *wav_p;
-    fftw_plan p;
+void calcMFCC(CalcMFCC * cm) {
+  double spectrum[cm->fft_buf_size];
+  double curCoeff;
 
-    double spectrum[fft_buf_size];
-    double curCoeff;
+  cm->fft_in = (double*) fftw_malloc(sizeof(double)*cm->fft_buf_size);
+  cm->fft_out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*(cm->fft_buf_size/2+1));
+  cm->p = fftw_plan_dft_r2c_1d(cm->fft_buf_size, cm->fft_in, cm->fft_out, FFTW_MEASURE);
 
-    in = (double*) fftw_malloc(sizeof(double)*fft_buf_size);
-    out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex)*(fft_buf_size/2+1));
-    p = fftw_plan_dft_r2c_1d(fft_buf_size, in, out, FFTW_MEASURE);
-
-    int pos;
-    int win_num = 0;
-
-    for (pos = 0; pos < blocks_read - fft_buf_size; pos += fft_hop_size){
-        win_num++;
-        int i;
-        for (i = 0; i < fft_buf_size; i++){
-            in[i] = wav[pos+i]*hamming[i];
-        }
-        fftw_execute(p);
-
-        for (i = 0; i < fft_buf_size/2+1; i++){
-            spectrum[i] = out[i][0]/fft_buf_size;
-        }
-
-        int coeff;
-        double curMFCC[WORD_SIZE];
-        for(coeff = 0; coeff < mfcc_order; coeff++) {
-            curCoeff = GetCoefficient(spectrum, sr, 48, 128, coeff);
-            curMFCC[coeff] = curCoeff;
-        }
-        int label = applyVocab(curMFCC);
-       
-        words_out.push_back(label);
- 
+  vector<int> labels;
+  vector<int> poses;
+  
+  for (int word = 0; word < cm->msg_size; word++) {
+    
+    if (cm->cur_pos >= cm->max_length) {
+      break;
     }
-    cout << endl;
+    
+    int local_pos = 0;
+    while (cm->cur_pos < cm->max_length && local_pos < cm->fft_buf_size) {
+
+      cm->fft_in[local_pos] = cm->wav_in[cm->cur_pos]*cm->hamming[local_pos];
+      
+      local_pos++;
+      
+      if (local_pos < cm->fft_hop_size) {
+	cm->cur_pos++;
+      }
+    }
+      
+    fftw_execute(cm->p);
+    
+    int i;
+    for (i = 0; i < cm->fft_buf_size/2+1; i++){
+      spectrum[i] = cm->fft_out[i][0]/cm->fft_buf_size;
+    }
+
+    int coeff;
+    double curMFCC[WORD_SIZE];
+    for(coeff = 0; coeff < WORD_SIZE; coeff++) {
+	curCoeff = GetCoefficient(spectrum, cm->samplerate, 48, 128, coeff);
+	curMFCC[coeff] = curCoeff;
+    }
+    
+    cm->cur_label = applyVocab(curMFCC);
+    labels.push_back(cm->cur_label);
+    
+    poses.push_back((int) ((double) cm->cur_pos*1000/(double) cm->samplerate));
+  }
+  
+  publishWord(labels, poses, cm->seq);  
+  cm->seq++;
 }
 
 int loadVocab(const char *fname){
@@ -128,7 +157,7 @@ int loadVocab(const char *fname){
   vocab_f = fopen(fname, "r");
   if (vocab_f == NULL){
     cout << fname << " was not a valid vocabulary" << endl;
-    return -d1;
+    return -1;
   }  
     
   // allocate it 
@@ -147,9 +176,7 @@ int loadVocab(const char *fname){
 	float curCoeff;
 	fscanf(vocab_f, "%f", &curCoeff);
 	vocab[i][j] = (double) curCoeff;
-	//printf("%f,",vocab[i][j]);
     }
-    //printf("\n");
     i++;
   }
   fclose(vocab_f);
@@ -157,14 +184,19 @@ int loadVocab(const char *fname){
 }
 
 int main(int argc, char *argv[]){
+  CalcMFCC calc_mfcc;
+  calc_mfcc.cur_pos = 0;
+  calc_mfcc.seq = 0;
+  
   if (argv[1] != NULL && strcmp(argv[1], "--help") == 0){
     cout << endl;
     cout << "Usage: rosrun rost_audio mfcc_wav" << endl;
     cout << "Parameters:" << endl;
+    cout << "    _file (string), must be specified" << endl;
     cout << "    _vocab (string), default MontrealSounds2k.txt" << endl;
     cout << "    _fft_buf_size (int), default 4096" << endl;
     cout << "    _overlap (double), default 0.5, must be < 1, starts lagging when < 0.15" << endl;
-    cout << "    _file (string), must be specified" << endl;
+    cout << "    _msg_size (int), number of words to be published at once. default 1. " << endl;
     cout << endl;
     return -1;
   }
@@ -176,20 +208,20 @@ int main(int argc, char *argv[]){
   nhp.param<string>("vocab", vocab_name, "MontrealSounds2k.txt");
   
   // By Default ~ 92 ms or 2^12 samples
-  nhp.param<int>("fft_buf_size",fft_buf_size, 4096);
-  cout << fft_buf_size << ": buffer size" << endl;
+  nhp.param<int>("fft_buf_size", calc_mfcc.fft_buf_size, 4096);
   
   double overlap;
-  nhp.param<double>("overlap",overlap, 0.5);
-  fft_hop_size = overlap * fft_buf_size;
-  cout << fft_hop_size << ": hop size" << endl;  
+  nhp.param<double>("overlap", overlap, 0.5);
+  calc_mfcc.fft_hop_size = overlap * calc_mfcc.fft_buf_size;
+  
+  nhp.param<int>("msg_size", calc_mfcc.msg_size, 1);
   
   if (loadVocab(vocab_name.c_str()) < 0){
     return -1;
   }
   // Initialize the hamming window (applied before doing the fft)  
-  hamming  = (double *) malloc(fft_buf_size * sizeof(double));
-  initWindow();
+  calc_mfcc.hamming  = (double *) malloc(calc_mfcc.fft_buf_size * sizeof(double));
+  initWindow(calc_mfcc.hamming, calc_mfcc.fft_buf_size);
   
   // Load the wav file
   string file;
@@ -197,8 +229,7 @@ int main(int argc, char *argv[]){
   cout << "Opening " << file << endl;
   SF_INFO info;
   SNDFILE *sf;
-  int blocks_read;
-  double *wav;
+  
   sf = sf_open(file.c_str(), SFM_READ, &info);
   if (sf == NULL) {
       cout << "Failed to open the file." << endl;
@@ -208,17 +239,23 @@ int main(int argc, char *argv[]){
       cout << "Only tested on single channel audio." << endl;
       return(-1);
   }
-  wav = (double *) malloc(info.frames*sizeof(double));
-  blocks_read = sf_read_double(sf, wav, info.frames);
+  
+  calc_mfcc.wav_in = (double *) malloc(info.frames*sizeof(double));
+  calc_mfcc.max_length = sf_read_double(sf, calc_mfcc.wav_in, info.frames);
   sf_close(sf);
-  cout << "Read " << blocks_read << " blocks from " << file << endl;
+  
+  cout << "Read " << calc_mfcc.max_length << " samples from " << file << endl;
   
   words_pub = nh.advertise<rost_common::WordObservation>("words", 1);
-  seq = 0;
   
-  ros::Timer pub_timer = nh.createTimer(ros::Duration((double) fft_hop_size/info.samplerate), publishWord, false);
+  calc_mfcc.samplerate = info.samplerate;
+  
+  ros::Rate r((double) calc_mfcc.samplerate/((double) calc_mfcc.msg_size*calc_mfcc.fft_hop_size));
 
-  calcMFCC(&wav, info.frames, WORD_SIZE, info.samplerate);
-
-  ros::spin();
+  while (calc_mfcc.cur_pos < calc_mfcc.max_length) {
+    calcMFCC(&calc_mfcc); 
+    ros::spinOnce();
+    r.sleep();
+  }
+  
 }
