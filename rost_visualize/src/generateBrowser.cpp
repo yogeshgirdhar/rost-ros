@@ -14,7 +14,7 @@
 #include <string>
 #include <iostream>
 #include <ctemplate/template.h>
-#include "../yaml-cpp/include/yaml-cpp/yaml.h"
+#include "yaml-cpp/yaml.h"
 
 namespace enc = sensor_msgs::image_encodings;
 
