@@ -14,13 +14,13 @@ rosbuild_init()
 include(ExternalProject)
 
 set(EXT_PREFIX "${PROJECT_SOURCE_DIR}/ext")
-set(YAMLCPP_CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXT_PREFIX})
+#set(YAMLCPP_CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXT_PREFIX})
 
-ExternalProject_Add(YAMLCPP_EXT
-  PREFIX ${EXT_PREFIX}
-  URL ${CMAKE_CURRENT_SOURCE_DIR}/ext/yaml-cpp
-  CMAKE_ARGS ${YAMLCPP_CMAKE_ARGS}
-)
+#ExternalProject_Add(YAMLCPP_EXT
+#  PREFIX ${EXT_PREFIX}
+#  URL ${CMAKE_CURRENT_SOURCE_DIR}/ext/yaml-cpp
+#  CMAKE_ARGS ${YAMLCPP_CMAKE_ARGS}
+#)
 find_package(PkgConfig)
 #pkg_search_module(TINYXML REQUIRED tinyxml)
 
@@ -46,8 +46,11 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 FIND_PACKAGE( OpenCV REQUIRED )
 rosbuild_add_boost_directories()
+
+add_subdirectory(ext/yaml-cpp)
+
 include_directories(${PROJECT_SOURCE_DIR})
-include_directories("${EXT_PREFIX}/include")
+include_directories("${EXT_PREFIX}/yaml-cpp/include")
 link_directories(${EXT_PREFIX}/lib)
 
 
