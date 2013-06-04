@@ -136,17 +136,17 @@ int main(int argc, char * argv[]) {
   desc.add_options()
     ("help", "produce help message")
     ("wav_names", po::value<vector<string> >(&wav_names)->multitoken(), "A list of the wav files to use as source audio for the vocabulary. Must be specified.")
-    ("vocab_name", po::value<string>(&vocab_name), "The text file to save the vocab to")
-    ("vocab_size", po::value<int>(&vocab_size)->default_value(2000), "Number of distinct words in the output vocabulary")
-    ("fft_buf_size", po::value<int>(&fft_buf_size)->default_value(4096), "Number of samples taken into account when calculating the fft and mfcc")
-    ("overlap", po::value<double>(&overlap)->default_value(0.5), "Amount of overlap between successive mfccs. Must be < 1")
+    ("vocab_name", po::value<string>(&vocab_name), "The text file to save the vocab to.")
+    ("vocab_size", po::value<int>(&vocab_size)->default_value(2000), "Number of distinct words in the output vocabulary.")
+    ("fft_buf_size", po::value<int>(&fft_buf_size)->default_value(4096), "Number of samples taken into account when calculating the fft and mfcc.")
+    ("overlap", po::value<double>(&overlap)->default_value(0.5), "Amount of overlap between successive mfccs. Must be < 1.")
   ;
   
   po::variables_map vm;
   po::store(po::parse_command_line(argc, argv, desc), vm);
   po::notify(vm);
   
-  if ( vm.count("help")  ) { 
+  if ( vm.count("help") || overlap > 1 || overlap < 0 ) { 
     cout << desc << endl; 
     return -1; 
   }

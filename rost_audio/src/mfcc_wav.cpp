@@ -188,18 +188,6 @@ int main(int argc, char *argv[]){
   calc_mfcc.cur_pos = 0;
   calc_mfcc.seq = 0;
   
-  if (argv[1] != NULL && strcmp(argv[1], "--help") == 0){
-    cout << endl;
-    cout << "Usage: rosrun rost_audio mfcc_wav" << endl;
-    cout << "Parameters:" << endl;
-    cout << "    _file (string), must be specified" << endl;
-    cout << "    _vocab (string), default MontrealSounds2k.txt" << endl;
-    cout << "    _fft_buf_size (int), default 4096" << endl;
-    cout << "    _overlap (double), default 0.5, must be < 1, starts lagging when < 0.15" << endl;
-    cout << "    _msg_size (int), number of words to be published at once. default 1. " << endl;
-    cout << endl;
-    return -1;
-  }
   ros::init(argc, argv, "audio_words");
   ros::NodeHandle nh("");
   ros::NodeHandle nhp("~");
@@ -215,6 +203,20 @@ int main(int argc, char *argv[]){
   calc_mfcc.fft_hop_size = (1 - overlap) * calc_mfcc.fft_buf_size;
   
   nhp.param<int>("msg_size", calc_mfcc.msg_size, 1);
+  
+  if (argv[1] != NULL && strcmp(argv[1], "--help") == 0 || overlap < 0 || overlap > 1){
+    cout << endl;
+    cout << "Usage: rosrun rost_audio mfcc_wav" << endl;
+    cout << "Parameters:" << endl;
+    cout << "    _file (string), must be specified" << endl;
+    cout << "    _vocab (string), default MontrealSounds2k.txt" << endl;
+    cout << "    _fft_buf_size (int), default 4096" << endl;
+    cout << "    _overlap (double), default 0.5, must be < 1, starts lagging when < 0.15" << endl;
+    cout << "    _msg_size (int), number of words to be published at once. default 1. " << endl;
+    cout << endl;
+    return -1;
+  }
+  
   
   if (loadVocab(vocab_name.c_str()) < 0){
     return -1;
