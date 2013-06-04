@@ -212,7 +212,7 @@ int main(int argc, char *argv[]){
   
   double overlap;
   nhp.param<double>("overlap", overlap, 0.5);
-  calc_mfcc.fft_hop_size = overlap * calc_mfcc.fft_buf_size;
+  calc_mfcc.fft_hop_size = (1 - overlap) * calc_mfcc.fft_buf_size;
   
   nhp.param<int>("msg_size", calc_mfcc.msg_size, 1);
   

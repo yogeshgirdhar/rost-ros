@@ -151,7 +151,7 @@ int main(int argc, char * argv[]) {
     return -1; 
   }
   
-  int fft_hop_size = fft_buf_size*overlap;
+  int fft_hop_size = fft_buf_size*(1 - overlap);
   
   cout << "vocab_name: " << vocab_name << endl;
   cout << "wav_names: ";
