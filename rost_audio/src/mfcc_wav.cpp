@@ -137,7 +137,7 @@ void calcMFCC(CalcMFCC * cm) {
     int coeff;
     double curMFCC[WORD_SIZE];
     for(coeff = 0; coeff < WORD_SIZE; coeff++) {
-	curCoeff = GetCoefficient(spectrum, cm->samplerate, 48, 128, coeff);
+	curCoeff = GetCoefficient(spectrum, cm->samplerate, 48, cm->fft_buf_size/2+1, coeff);
 	curMFCC[coeff] = curCoeff;
     }
     
@@ -204,7 +204,7 @@ int main(int argc, char *argv[]){
   
   nhp.param<int>("msg_size", calc_mfcc.msg_size, 1);
   
-  if (argv[1] != NULL && strcmp(argv[1], "--help") == 0 || overlap < 0 || overlap > 1){
+  if (argv[1] != NULL && (strcmp(argv[1], "--help") == 0) || overlap < 0 || overlap > 1){
     cout << endl;
     cout << "Usage: rosrun rost_audio mfcc_wav" << endl;
     cout << "Parameters:" << endl;
