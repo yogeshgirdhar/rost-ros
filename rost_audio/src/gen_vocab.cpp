@@ -91,7 +91,7 @@ vector<vector<double> > calcMFCC(double ** wav_p, int blocks_read, int fft_buf_s
       
       int coeff;
       for(coeff = 0; coeff < WORD_SIZE; coeff++) {
-	  curCoeff = GetCoefficient(spectrum, sr, 48, 128, coeff);
+	  curCoeff = GetCoefficient(spectrum, sr, 48, fft_buf_size/2+1, coeff);
 	  curMFCC.push_back(curCoeff);
       }
       

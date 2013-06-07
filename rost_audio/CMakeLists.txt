@@ -47,3 +47,6 @@ rosbuild_add_executable(gen_vocab src/gen_vocab.cpp)
 rosbuild_link_boost(gen_vocab program_options)
 target_link_libraries(gen_vocab ${OpenCV_LIBS} fftw3 sndfile mfcc)
 
+rosbuild_add_executable(audio_words_cli src/mfcc_wav_cli.cpp)
+target_link_libraries(audio_words_cli fftw3 sndfile mfcc)
+rosbuild_link_boost(audio_words_cli program_options)
