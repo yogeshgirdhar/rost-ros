@@ -105,7 +105,7 @@ namespace rost{
 
     for(int i=0;i<thumb.rows; ++i) // y
       for(int j=0;j<thumb.cols; ++j){ //x
-	z->words.push_back(ivocab0 + words[i*thumb.rows + j]);
+	z->words.push_back(vocabulary_begin + words[i*thumb.cols + j]);
 	z->word_pose.push_back(j*word_scale + word_scale/2);
 	z->word_pose.push_back(i*word_scale + word_scale/2);
 	z->word_scale.push_back(word_scale/2);	  
