@@ -4,15 +4,26 @@ namespace rost{
   using namespace std;
   using namespace rost_common;
   using namespace cv;
-  
+
+  #define NGaborWordBits 12
   GaborBOW::GaborBOW(int vocabulary_begin_, int size_cols_, double img_scale_):
     BOW("Gabor",vocabulary_begin_,0),
     size_cols(size_cols_),
     img_scale(img_scale_)
   {
-    BOW::vocabulary_size = 1<<16; //16 bits
+    //    BOW::vocabulary_size = 1<<16; //16 bits
+    //    thetas = {{0.0, 45.0, 90.0, 135.0}};
+    //    lambdas = {{2.0, 5.0, 11.0, 17.0}};
+
+    BOW::vocabulary_size = 1<<NGaborWordBits; //12 bits
     thetas = {{0.0, 45.0, 90.0, 135.0}};
-    lambdas = {{2.0, 5.0, 11.0, 17.0}};
+    if(NGaborWordBits == 12){
+      lambdas = {{2.0, 5.0, 11.0}};
+    }
+    else if (NGaborWordBits == 16){
+      lambdas = {{2.0, 5.0, 11.0, 17.0}};
+    }
+
     size_t n=thetas.size()*lambdas.size();
     sin_gabor.resize(n);
     cos_gabor.resize(n);
@@ -33,11 +44,13 @@ namespace rost{
 
 
   vector<unsigned int> GaborBOW::make_words(vector<Mat_<float> >& response){
-    vector<bitset<16> > words(response[0].rows * response[0].cols);
-    for(size_t b=0; b< 16; ++b){
+    vector<bitset<NGaborWordBits> > words(response[0].rows * response[0].cols);
+    for(size_t b=0; b< NGaborWordBits; ++b){
+      //      float threshold = cv::mean(response[b])[0];
+      float threshold = 0.5 * (*(std::max_element(response[b].begin(), response[b].end())));
       for(int i = 0; i< response[0].rows; ++i){
 	for(int j = 0; j< response[0].cols; ++j){
-	  words[i*response[b].cols + j][b] = response[b].at<float>(i,j)>0.5;
+	  words[i*response[b].cols + j][b] = response[b].at<float>(i,j)>threshold;
 	}
       }
     }
