@@ -10,7 +10,6 @@ namespace rost{
   struct GaborBOW:public BOW{
     int size_cols;
     double img_scale;
-    int hvocab0, ivocab0;
     vector<double> thetas, lambdas;
     vector<Mat> sin_gabor, cos_gabor;
     vector<Mat_<float> >filter_response;

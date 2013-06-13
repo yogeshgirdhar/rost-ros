@@ -75,7 +75,7 @@
 
 <arg name="topics.enable" default="true"/>
 <arg name="K" default="64"/>
-<arg name="V" default="75000"/>
+<arg name="V" default="10000"/>
 <arg name="alpha" default="0.1"/>
 <arg name="beta" default="0.1"/>
 <arg name="tau" default="2.0"/>
